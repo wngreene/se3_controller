@@ -13,7 +13,7 @@
   <!-- Start rviz visualization with preset config -->
   <node pkg="rviz" type="rviz" name="rviz" args="-d $(find hector_quadrotor_demo)/rviz_cfg/outdoor_flight.rviz"/>
 
-  <!-- Start geo_controller node -->
-  <node pkg="geo_controller" type="geo_controller" name="geo_controller" />
+  <!-- Start se3_controller node -->
+  <!-- <node pkg="se3_controller" type="se3_controller.py" name="se3_controller" /> -->
 
 </launch>

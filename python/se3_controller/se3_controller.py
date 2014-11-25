@@ -8,13 +8,17 @@ def wrenchCallback(data):
     '''
     Wrench callback.
     '''
-    print "I received a Wrench message!"
+    rospy.loginfo("Force = %s", str(data))
+
+    return
 
 
 def main():
     '''
     Main method.
     '''
+    print "Running se3_controller..."
+
     rospy.init_node('se3_controller')
 
     rospy.Subscriber("wrench_out", Wrench, wrenchCallback)
