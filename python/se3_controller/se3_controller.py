@@ -1,9 +1,34 @@
 #!/usr/bin/env python
 
+import numpy as np
+
 import rospy
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import TwistStamped
 from std_msgs.msg import Header
+from hector_uav_msgs.msg import MotorCommand, Supply
+
+
+class ForwardFacingTrajectory(object):
+    """Trajectory class for forward facing trajectories.
+
+    Class that represents a desired trajectory where the desired forward vector
+    lies along the desired velocity vector.
+    """
+    def __init__(self, x_des):
+        self.x_des = x_des
+
+        return
+
+    def position(self, t):
+        return self.x_des(t)
+
+    def velocity(self, t, dt=1e-2):
+        return (self.x_des(t-dt) - self.x_des(t+dt))/dt
+
+    def forward(self, t, dt=1e-2):
+        v = self.velocity(t, dt)
+        return v/np.linalg.norm(v)
 
 
 class SE3Controller(object):
@@ -11,24 +36,86 @@ class SE3Controller(object):
 
     Based on Lee et al. 2010.
     """
-    def __init__(self):
-        super(SE3Controller, self).__init__()
+    def __init__(self, trajectory):
+        rospy.init_node('se3_controller')
 
+        self.update_rate = 30
+        self.time_start = rospy.Time.now()
+        self.trajectory = trajectory
         self.curr_state = None
-        self.state_subscriber = rospy.Subscriber("/ground_truth/state",
-                                                 Odometry, self.stateCallback)
-        self.twist_publisher = rospy.Publisher("command/twist", TwistStamped)
+        self.state_sub = rospy.Subscriber("/ground_truth/state",
+                                          Odometry, self.stateCallback)
+        self.motor_supply_sub = rospy.Subscriber("/supply", Supply,
+                                                 self.supplyCallback)
+
+        self.twist_pub = rospy.Publisher("/command/twist", TwistStamped)
+        self.motor_pub = rospy.Publisher("/command/motor", MotorCommand)
+
+        # Gains.
+        self.k_x = -1.0
+        self.k_v = -1.0
+        self.k_R = -1.0
+        self.k_w = -1.0
 
         return
 
     def stateCallback(self, data):
-        """ Callback for current state.
+        """Callback for current state.
 
         Callback for /ground_truth/state.
         """
         self.curr_state = data
 
+        # self.getErrors()
         self.update()
+
+        return
+
+    def supplyCallback(self, data):
+        """Call back for motor supply.
+
+        Callback for /supply.
+        """
+        self.max_voltage = data.voltage[0]
+
+        return
+
+    def getErrors(self, state):
+        msg_time = self.curr_state.header.stamp
+
+        # Desired states.
+        x_des = self.trajectory.position(msg_time - self.time_start)
+        v_des = self.trajectory.velocity(msg_time - self.time_start)
+        fwd_des = self.trajectory.forward(msg_time - self.time_start)
+
+        # Errors.
+        e_x = np.zeros(3)
+        e_v = np.zeros(3)
+        e_R = np.zeros(3)
+        e_w = np.zeros(3)
+
+
+        e_x[0] = state.pose.position.x - x_des[0]
+        e_x[1] = state.pose.position.y - x_des[1]
+        e_x[2] = state.pose.position.z - x_des[2]
+
+        e_v[0] = state.pose.position.x - v_des[0]
+        e_v[1] = state.pose.position.y - v_des[1]
+        e_v[2] = state.pose.position.z - v_des[2]
+
+
+
+        return
+
+    def run(self):
+        """Node mainloop.
+
+        Receives messages and publishes commands.
+        """
+        r = rospy.Rate(self.update_rate)
+        while not rospy.is_shutdown():
+            self.update()
+            r.sleep()
 
         return
 
@@ -48,22 +135,31 @@ class SE3Controller(object):
         twist_cmd.twist.angular.z = 0
 
         rospy.loginfo("Twist = %s", str(twist_cmd))
-        self.twist_publisher.publish(twist_cmd)
+        self.twist_pub.publish(twist_cmd)
+
+
+        # motor_cmd = MotorCommand()
+        # motor_cmd.voltage.append()
+
 
         return
 
 
 def main():
-    '''
-    Main method.
-    '''
-    print "Running se3_controller..."
+    """Main method.
 
-    rospy.init_node('se3_controller')
+    Runs SE3 controller on a predetermined trajectory.
+    """
 
-    se3_controller = SE3Controller()
+    try:
+        print "Running se3_controller..."
 
-    rospy.spin()
+        trajectory = ForwardFacingTrajectory([])
+        se3_controller = SE3Controller(trajectory)
+        se3_controller.run()
+
+    except rospy.ROSInterruptException:
+        pass
 
     return
 
