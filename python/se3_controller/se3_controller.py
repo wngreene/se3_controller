@@ -43,13 +43,19 @@ class SE3Controller(object):
         self.time_start = rospy.Time.now()
         self.trajectory = trajectory
         self.curr_state = None
+        self.max_voltage = None
+
+        # Subscribers.
         self.state_sub = rospy.Subscriber("/ground_truth/state",
                                           Odometry, self.stateCallback)
         self.motor_supply_sub = rospy.Subscriber("/supply", Supply,
                                                  self.supplyCallback)
 
-        self.twist_pub = rospy.Publisher("/command/twist", TwistStamped)
-        self.motor_pub = rospy.Publisher("/command/motor", MotorCommand)
+        # Publishers.
+        self.twist_pub = rospy.Publisher("/command/twist", TwistStamped,
+                                         queue_size=10)
+        self.motor_pub = rospy.Publisher("/command/motor", MotorCommand,
+                                         queue_size=10)
 
         # Gains.
         self.k_x = -1.0
@@ -120,27 +126,32 @@ class SE3Controller(object):
         return
 
     def update(self):
-        twist_cmd = TwistStamped()
-        twist_cmd.header = Header()
-        twist_cmd.header.stamp = rospy.Time.now()
+        # twist_cmd = TwistStamped()
+        # twist_cmd.header = Header()
+        # twist_cmd.header.stamp = rospy.Time.now()
+        #
+        # twist_cmd.twist.linear.x = 0
+        # twist_cmd.twist.linear.y = 0
+        #
+        # error = (self.curr_state.pose.pose.position.z - 1)
+        # twist_cmd.twist.linear.z = -1.0*error
+        #
+        # twist_cmd.twist.angular.x = 0
+        # twist_cmd.twist.angular.y = 0
+        # twist_cmd.twist.angular.z = 0
+        #
+        # rospy.loginfo("Twist = %s", str(twist_cmd))
+        # self.twist_pub.publish(twist_cmd)
 
-        twist_cmd.twist.linear.x = 0
-        twist_cmd.twist.linear.y = 0
+        if self.max_voltage:
+            motor_cmd = MotorCommand()
+            motor_cmd.header = Header()
+            motor_cmd.header.stamp = rospy.Time.now()
 
-        error = (self.curr_state.pose.pose.position.z - 1)
-        twist_cmd.twist.linear.z = -1.0*error
+            for ii in range(0, 4):
+                motor_cmd.voltage.append(1 * self.max_voltage)
 
-        twist_cmd.twist.angular.x = 0
-        twist_cmd.twist.angular.y = 0
-        twist_cmd.twist.angular.z = 0
-
-        rospy.loginfo("Twist = %s", str(twist_cmd))
-        self.twist_pub.publish(twist_cmd)
-
-
-        # motor_cmd = MotorCommand()
-        # motor_cmd.voltage.append()
-
+            self.motor_pub.publish(motor_cmd)
 
         return
 
