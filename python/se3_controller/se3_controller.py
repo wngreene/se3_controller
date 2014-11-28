@@ -8,6 +8,7 @@ from geometry_msgs.msg import TwistStamped
 from std_msgs.msg import Header
 from hector_uav_msgs.msg import MotorCommand, Supply
 
+from python_utils import Geometry
 
 class ForwardFacingTrajectory(object):
     """Trajectory class for forward facing trajectories.
@@ -58,10 +59,10 @@ class SE3Controller(object):
                                          queue_size=10)
 
         # Gains.
-        self.k_x = -1.0
-        self.k_v = -1.0
-        self.k_R = -1.0
-        self.k_w = -1.0
+        self.k_x = 1.0
+        self.k_v = 1.0
+        self.k_R = 1.0
+        self.k_w = 1.0
 
         return
 
@@ -100,18 +101,21 @@ class SE3Controller(object):
         e_R = np.zeros(3)
         e_w = np.zeros(3)
 
-
         e_x[0] = state.pose.position.x - x_des[0]
         e_x[1] = state.pose.position.y - x_des[1]
         e_x[2] = state.pose.position.z - x_des[2]
 
-        e_v[0] = state.pose.position.x - v_des[0]
-        e_v[1] = state.pose.position.y - v_des[1]
-        e_v[2] = state.pose.position.z - v_des[2]
+        e_v[0] = state.twist.linear.x - v_des[0]
+        e_v[1] = state.twist.linear.y - v_des[1]
+        e_v[2] = state.twist.linear.z - v_des[2]
 
+        q_curr = Geometry.Quaternion(state.pose.orientation.x,
+                                     state.pose.orientation.y,
+                                     state.pose.orientation.z,
+                                     state.pose.orientation.w)
+        R_curr = q_curr.getRotationMatrix()
 
-
-        return
+        return e_x, e_v, e_R, e_w
 
     def run(self):
         """Node mainloop.
@@ -120,29 +124,32 @@ class SE3Controller(object):
         """
         r = rospy.Rate(self.update_rate)
         while not rospy.is_shutdown():
-            self.update()
+            self.twistUpdate()
             r.sleep()
 
         return
 
-    def update(self):
-        # twist_cmd = TwistStamped()
-        # twist_cmd.header = Header()
-        # twist_cmd.header.stamp = rospy.Time.now()
-        #
-        # twist_cmd.twist.linear.x = 0
-        # twist_cmd.twist.linear.y = 0
-        #
-        # error = (self.curr_state.pose.pose.position.z - 1)
-        # twist_cmd.twist.linear.z = -1.0*error
-        #
-        # twist_cmd.twist.angular.x = 0
-        # twist_cmd.twist.angular.y = 0
-        # twist_cmd.twist.angular.z = 0
-        #
-        # rospy.loginfo("Twist = %s", str(twist_cmd))
-        # self.twist_pub.publish(twist_cmd)
+    def twistUpdate(self):
+        twist_cmd = TwistStamped()
+        twist_cmd.header = Header()
+        twist_cmd.header.stamp = rospy.Time.now()
 
+        twist_cmd.twist.linear.x = 0
+        twist_cmd.twist.linear.y = 0
+
+        error = (self.curr_state.pose.pose.position.z - 1)
+        twist_cmd.twist.linear.z = -self.k_x*error
+
+        twist_cmd.twist.angular.x = 0
+        twist_cmd.twist.angular.y = 0
+        twist_cmd.twist.angular.z = 0
+
+        rospy.loginfo("Twist = %s", str(twist_cmd))
+        self.twist_pub.publish(twist_cmd)
+
+        return
+
+    def voltageUpdate(self):
         if self.max_voltage:
             motor_cmd = MotorCommand()
             motor_cmd.header = Header()
