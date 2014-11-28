@@ -32,6 +32,9 @@ class ForwardFacingTrajectory(object):
         v = self.velocity(t, dt)
         return v/np.linalg.norm(v)
 
+    def angularVelocity(self, t, dt):
+        v0 = self.forward()
+
 
 class SE3Controller(object):
     """SE3 Controller for Quadrotors.
@@ -60,8 +63,8 @@ class SE3Controller(object):
                                          queue_size=10)
 
         # Gains.
-        self.k_x = 1.0
-        self.k_v = 1.0
+        self.k_x = 16.0
+        self.k_v = 6.0
         self.k_R = 1.0
         self.k_w = 1.0
 
@@ -114,6 +117,27 @@ class SE3Controller(object):
                                      state.pose.pose.orientation.w)
         R_curr = q_curr.getRotationMatrix()
 
+        up = R_curr[:, 2]
+        right_des = np.cross(fwd_des, up)
+        right_des /= np.linalg.norm(right_des)
+        proj_fwd_des = np.cross(right_des, up)
+
+        R_des = np.zeros((3, 3))
+        R_des[:, 0] = right_des
+        R_des[:, 1] = proj_fwd_des
+        R_des[:, 2] = up
+
+        e_R = 0.5 * Geometry.veemap(np.dot(R_des.T, R_curr) -
+                                    np.dot(R_curr.T, R_des))
+
+        e_w = np.zeros(3)
+        w_curr = np.zeros(3)
+        w_curr[0] = state.twist.twist.angular.x
+        w_curr[1] = state.twist.twist.angular.y
+        w_curr[2] = state.twist.twist.angular.z
+
+
+
         return e_x, e_v, e_R, e_w
 
     def run(self):
@@ -136,9 +160,9 @@ class SE3Controller(object):
             twist_cmd.header = Header()
             twist_cmd.header.stamp = rospy.Time.now()
 
-            twist_cmd.twist.linear.x = -self.k_x * e_x[0]
-            twist_cmd.twist.linear.y = -self.k_x * e_x[1]
-            twist_cmd.twist.linear.z = -self.k_x * e_x[2]
+            twist_cmd.twist.linear.x = -self.k_x * e_x[0] - self.k_v * e_v[0]
+            twist_cmd.twist.linear.y = -self.k_x * e_x[1] - self.k_v * e_v[1]
+            twist_cmd.twist.linear.z = -self.k_x * e_x[2] - self.k_v * e_v[2]
 
             twist_cmd.twist.angular.x = 0
             twist_cmd.twist.angular.y = 0
@@ -173,8 +197,8 @@ def main():
         print "Running se3_controller..."
         R = 4
         w = 2*np.pi/5.0
-        x_des = lambda t, R=R, w=w: np.array([R*np.cos(w*t), R*np.sin(w*t), 5])
-        trajectory = ForwardFacingTrajectory(x_des)
+        x_des_hcircle = lambda t, R=R, w=w: np.array([R*np.cos(w*t), R*np.sin(w*t), 5])
+        trajectory = ForwardFacingTrajectory(x_des_hcircle)
         se3_controller = SE3Controller(trajectory)
         se3_controller.run()
 
