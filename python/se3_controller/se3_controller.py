@@ -45,7 +45,7 @@ class SE3Controller(object):
     def __init__(self, trajectory):
         rospy.init_node('se3_controller')
 
-        self.update_rate = 30
+        self.update_rate = 100
         self.time_start = rospy.Time.now()
         self.trajectory = trajectory
         self.curr_state = None
@@ -67,10 +67,10 @@ class SE3Controller(object):
                                         queue_size=10)
 
         # Gains.
-        self.k_x = 1.0 * self.mass
-        self.k_v = 1.0 * self.mass
-        self.k_R = 1.0
-        self.k_w = 1.0
+        self.k_x = 0.5 * self.mass
+        self.k_v = 0.25 * self.mass
+        self.k_R = 10
+        self.k_w = 10
 
         return
 
@@ -165,7 +165,7 @@ class SE3Controller(object):
 
         # rospy.loginfo("R_curr = \n%s", str(R_curr))
         # rospy.loginfo("R_des = \n%s", str(R_des))
-        rospy.loginfo("e_R = \n%s", str(e_R))
+        # rospy.loginfo("e_R = \n%s", str(e_R))
 
         return e_x, e_v, e_R, e_w
 
@@ -194,19 +194,20 @@ class SE3Controller(object):
 
     def twistUpdate(self):
         if self.curr_state:
+            x_des, v_des, R_des, w_des = self.getGoalState(self.curr_state)
             e_x, e_v, e_R, e_w = self.getErrors(self.curr_state)
 
             twist_cmd = TwistStamped()
             twist_cmd.header = Header()
             twist_cmd.header.stamp = rospy.Time.now()
 
-            twist_cmd.twist.linear.x = -self.k_x * e_x[0] - self.k_v * e_v[0]
-            twist_cmd.twist.linear.y = -self.k_x * e_x[1] - self.k_v * e_v[1]
-            twist_cmd.twist.linear.z = -self.k_x * e_x[2] - self.k_v * e_v[2]
+            twist_cmd.twist.linear.x = -self.k_x * e_x[0] - self.k_v * e_v[0] + v_des[0]
+            twist_cmd.twist.linear.y = -self.k_x * e_x[1] - self.k_v * e_v[1] + v_des[1]
+            twist_cmd.twist.linear.z = -self.k_x * e_x[2] - self.k_v * e_v[2] + v_des[2]
 
-            twist_cmd.twist.angular.x = 0
-            twist_cmd.twist.angular.y = 0
-            twist_cmd.twist.angular.z = 0
+            twist_cmd.twist.angular.x = -self.k_R * e_R[0] - self.k_w * e_w[0] + w_des[0]
+            twist_cmd.twist.angular.y = -self.k_R * e_R[1] - self.k_w * e_w[1] + w_des[1]
+            twist_cmd.twist.angular.z = -self.k_R * e_R[2] - self.k_w * e_w[2] + w_des[2]
 
             self.twist_pub.publish(twist_cmd)
             self.publishGoal(self.curr_state)
@@ -291,12 +292,73 @@ class HorizontalCircle(object):
         if t < self.wait_time:
             ret = np.zeros(3)
         else:
-            f = np.array([-np.sin(self.w*tt),
-                          np.cos(self.w*tt),
-                          0])
+            f = self.forward(t)
             fdot = np.array([-self.w*np.cos(self.w*tt),
                              -self.w*np.sin(self.w*tt),
                              0])
+
+            ret = np.cross(f, fdot)
+
+        return ret
+
+
+class VerticalCircle(object):
+    """Vertical circle trajectory."""
+    def __init__(self, R=2, H=10, w=2*np.pi/5, wait_time=20):
+        super(VerticalCircle, self).__init__()
+        self.R = R
+        self.H = H
+        self.w = w
+        self.wait_time = wait_time
+
+    def position(self, t):
+        ret = None
+        tt = t - self.wait_time
+
+        if t < self.wait_time:
+            ret = np.array([0, 0, self.H - self.R])
+        else:
+            ret = np.array([0.0,
+                            self.R*np.sin(self.w*tt),
+                            -self.R*np.cos(self.w*tt) + self.H])
+        return ret
+
+    def velocity(self, t):
+        ret = None
+        tt = t - self.wait_time
+
+        if t < self.wait_time:
+            ret = np.array([0, 0, 0])
+        else:
+            ret = np.array([0,
+                            self.w * self.R * np.cos(self.w * tt),
+                            self.w * self.R * np.sin(self.w * tt)])
+        return ret
+
+    def forward(self, t):
+        ret = None
+        tt = t - self.wait_time
+
+        if t < self.wait_time:
+            ret = np.array([0, 1, 0])
+        else:
+            ret = np.array([0,
+                            np.cos(self.w * tt),
+                            np.sin(self.w * tt)])
+
+        return ret
+
+    def angularVelocity(self, t):
+        ret = None
+        tt = t - self.wait_time
+
+        if t < self.wait_time:
+            ret = np.zeros(3)
+        else:
+            f = self.forward(t)
+            fdot = np.array([0,
+                             -self.w * np.sin(self.w * tt),
+                             self.w * np.cos(self.w * tt)])
 
             ret = np.cross(f, fdot)
 
@@ -312,11 +374,12 @@ def main():
     try:
         print "Running se3_controller..."
 
-        hcircle = HorizontalCircle()
-        trajectory = Trajectory(hcircle.position,
-                                hcircle.velocity,
-                                hcircle.forward,
-                                hcircle.angularVelocity)
+        # traj = HorizontalCircle(4, 2*np.pi/6)
+        traj = VerticalCircle()
+        trajectory = Trajectory(traj.position,
+                                traj.velocity,
+                                traj.forward,
+                                traj.angularVelocity)
 
         se3_controller = SE3Controller(trajectory)
         se3_controller.run()
