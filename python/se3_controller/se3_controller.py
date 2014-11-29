@@ -11,29 +11,30 @@ from hector_uav_msgs.msg import MotorCommand, Supply
 from python_utils import Geometry
 
 
-class ForwardFacingTrajectory(object):
-    """Trajectory class for forward facing trajectories.
+class Trajectory(object):
+    """Trajectory class.
 
-    Class that represents a desired trajectory where the desired forward vector
-    lies along the desired velocity vector.
+    Class that represents a desired trajectory.
     """
-    def __init__(self, x_des):
+    def __init__(self, x_des, v_des, fwd_des, w_des):
         self.x_des = x_des
+        self.v_des = v_des
+        self.fwd_des = fwd_des
+        self.w_des = w_des
 
         return
 
     def position(self, t):
         return self.x_des(t)
 
-    def velocity(self, t, dt=1e-2):
-        return (self.x_des(t-dt) - self.x_des(t+dt))/dt
+    def velocity(self, t):
+        return self.v_des(t)
 
-    def forward(self, t, dt=1e-2):
-        v = self.velocity(t, dt)
-        return v/np.linalg.norm(v)
+    def forward(self, t):
+        return self.fwd_des(t)
 
-    def angularVelocity(self, t, dt):
-        v0 = self.forward()
+    def angularVelocity(self, t):
+        return self.w_des(t)
 
 
 class SE3Controller(object):
@@ -49,6 +50,7 @@ class SE3Controller(object):
         self.trajectory = trajectory
         self.curr_state = None
         self.max_voltage = None
+        self.mass = 1.477
 
         # Subscribers.
         self.state_sub = rospy.Subscriber("/ground_truth/state",
@@ -63,8 +65,8 @@ class SE3Controller(object):
                                          queue_size=10)
 
         # Gains.
-        self.k_x = 16.0
-        self.k_v = 6.0
+        self.k_x = 1.0 * self.mass
+        self.k_v = 1.0 * self.mass
         self.k_R = 1.0
         self.k_w = 1.0
 
@@ -96,6 +98,7 @@ class SE3Controller(object):
         x_des = self.trajectory.position(t)
         v_des = self.trajectory.velocity(t)
         fwd_des = self.trajectory.forward(t)
+        w_des = self.trajectory.angularVelocity(t)
 
         # Errors.
         e_x = np.zeros(3)
@@ -103,14 +106,17 @@ class SE3Controller(object):
         e_R = np.zeros(3)
         e_w = np.zeros(3)
 
+        # Position.
         e_x[0] = state.pose.pose.position.x - x_des[0]
         e_x[1] = state.pose.pose.position.y - x_des[1]
         e_x[2] = state.pose.pose.position.z - x_des[2]
 
+        # Velocity.
         e_v[0] = state.twist.twist.linear.x - v_des[0]
         e_v[1] = state.twist.twist.linear.y - v_des[1]
         e_v[2] = state.twist.twist.linear.z - v_des[2]
 
+        # Orientation.
         q_curr = Geometry.Quaternion(state.pose.pose.orientation.x,
                                      state.pose.pose.orientation.y,
                                      state.pose.pose.orientation.z,
@@ -130,13 +136,16 @@ class SE3Controller(object):
         e_R = 0.5 * Geometry.veemap(np.dot(R_des.T, R_curr) -
                                     np.dot(R_curr.T, R_des))
 
+        # Angular velocity.
         e_w = np.zeros(3)
         w_curr = np.zeros(3)
         w_curr[0] = state.twist.twist.angular.x
         w_curr[1] = state.twist.twist.angular.y
         w_curr[2] = state.twist.twist.angular.z
 
+        e_w = w_curr - np.dot(R_curr.T, np.dot(R_des, w_des))
 
+        rospy.loginfo("R_curr = %s", str(R_curr))
 
         return e_x, e_v, e_R, e_w
 
@@ -187,6 +196,70 @@ class SE3Controller(object):
         return
 
 
+class HorizontalCircle(object):
+    """Horizontal circle trajectory."""
+    def __init__(self, R=4, w=2*np.pi/10, wait_time=30):
+        super(HorizontalCircle, self).__init__()
+        self.R = R
+        self.w = w
+        self.wait_time = wait_time
+
+    def position(self, t):
+        ret = None
+        tt = t - self.wait_time
+
+        if t < self.wait_time:
+            ret = np.array([self.R, 0, 5])
+        else:
+            ret = np.array([self.R*np.cos(self.w*tt),
+                            self.R*np.sin(self.w*tt),
+                            5])
+        return ret
+
+    def velocity(self, t):
+        ret = None
+        tt = t - self.wait_time
+
+        if t < self.wait_time:
+            ret = np.array([0, 0, 0])
+        else:
+            ret = np.array([-self.R*self.w*np.sin(self.w*tt),
+                            self.R*self.w*np.cos(self.w*tt),
+                            0])
+        return ret
+
+    def forward(self, t):
+        ret = None
+        tt = t - self.wait_time
+
+        if t < self.wait_time:
+            ret = np.array([0, 1, 0])
+        else:
+            ret = np.array([-np.sin(self.w * tt),
+                            np.cos(self.w * tt),
+                            0])
+
+        return ret
+
+    def angularVelocity(self, t):
+        ret = None
+        tt = t - self.wait_time
+
+        if t < self.wait_time:
+            ret = np.zeros(3)
+        else:
+            f = np.array([-np.sin(self.w*tt),
+                          np.cos(self.w*tt),
+                          0])
+            fdot = np.array([-self.w*np.cos(self.w*tt),
+                             -self.w*np.sin(self.w*tt),
+                             0])
+
+            ret = np.cross(f, fdot)
+
+        return ret
+
+
 def main():
     """Main method.
 
@@ -195,10 +268,13 @@ def main():
 
     try:
         print "Running se3_controller..."
-        R = 4
-        w = 2*np.pi/5.0
-        x_des_hcircle = lambda t, R=R, w=w: np.array([R*np.cos(w*t), R*np.sin(w*t), 5])
-        trajectory = ForwardFacingTrajectory(x_des_hcircle)
+
+        hcircle = HorizontalCircle()
+        trajectory = Trajectory(hcircle.position,
+                                hcircle.velocity,
+                                hcircle.forward,
+                                hcircle.angularVelocity)
+
         se3_controller = SE3Controller(trajectory)
         se3_controller.run()
 
