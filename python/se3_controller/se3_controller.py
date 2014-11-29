@@ -4,7 +4,7 @@ import numpy as np
 
 import rospy
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import TwistStamped
+from geometry_msgs.msg import TwistStamped, PoseStamped
 from std_msgs.msg import Header
 from hector_uav_msgs.msg import MotorCommand, Supply
 
@@ -63,6 +63,8 @@ class SE3Controller(object):
                                          queue_size=10)
         self.motor_pub = rospy.Publisher("/command/motor", MotorCommand,
                                          queue_size=10)
+        self.goal_pub = rospy.Publisher("/goal_pose", PoseStamped,
+                                        queue_size=10)
 
         # Gains.
         self.k_x = 1.0 * self.mass
@@ -90,15 +92,41 @@ class SE3Controller(object):
 
         return
 
-    def getErrors(self, state):
-        msg_time = self.curr_state.header.stamp
+    def getGoalState(self, state):
+        """Compute goal state (note depends on current state). """
+
+        msg_time = state.header.stamp
         t = (msg_time - self.time_start).to_sec()
 
-        # Desired states.
         x_des = self.trajectory.position(t)
         v_des = self.trajectory.velocity(t)
         fwd_des = self.trajectory.forward(t)
         w_des = self.trajectory.angularVelocity(t)
+
+        # Compute R_des.
+        q_curr = Geometry.Quaternion(state.pose.pose.orientation.x,
+                                     state.pose.pose.orientation.y,
+                                     state.pose.pose.orientation.z,
+                                     state.pose.pose.orientation.w)
+        R_curr = q_curr.getRotationMatrix()
+
+        up = R_curr[:, 2]
+        right_des = np.cross(fwd_des, up)
+        right_des /= np.linalg.norm(right_des)
+        proj_fwd_des = np.cross(up, right_des)
+
+        R_des = np.zeros((3, 3))
+        R_des[:, 0] = right_des
+        R_des[:, 1] = proj_fwd_des
+        R_des[:, 2] = up
+
+        return x_des, v_des, R_des, w_des
+
+    def getErrors(self, state):
+        """Compute current state errors. """
+
+        # Desired states.
+        x_des, v_des, R_des, w_des = self.getGoalState(state)
 
         # Errors.
         e_x = np.zeros(3)
@@ -123,16 +151,6 @@ class SE3Controller(object):
                                      state.pose.pose.orientation.w)
         R_curr = q_curr.getRotationMatrix()
 
-        up = R_curr[:, 2]
-        right_des = np.cross(fwd_des, up)
-        right_des /= np.linalg.norm(right_des)
-        proj_fwd_des = np.cross(right_des, up)
-
-        R_des = np.zeros((3, 3))
-        R_des[:, 0] = right_des
-        R_des[:, 1] = proj_fwd_des
-        R_des[:, 2] = up
-
         e_R = 0.5 * Geometry.veemap(np.dot(R_des.T, R_curr) -
                                     np.dot(R_curr.T, R_des))
 
@@ -145,19 +163,32 @@ class SE3Controller(object):
 
         e_w = w_curr - np.dot(R_curr.T, np.dot(R_des, w_des))
 
-        rospy.loginfo("R_curr = %s", str(R_curr))
+        # rospy.loginfo("R_curr = \n%s", str(R_curr))
+        # rospy.loginfo("R_des = \n%s", str(R_des))
+        rospy.loginfo("e_R = \n%s", str(e_R))
 
         return e_x, e_v, e_R, e_w
 
-    def run(self):
-        """Node mainloop.
+    def publishGoal(self, state):
+        # Desired states.
+        x_des, v_des, R_des, w_des = self.getGoalState(state)
 
-        Receives messages and publishes commands.
-        """
-        r = rospy.Rate(self.update_rate)
-        while not rospy.is_shutdown():
-            self.twistUpdate()
-            r.sleep()
+        q_des = Geometry.Quaternion()
+        q_des.setFromRotationMatrix(R_des)
+
+        pose_msg = PoseStamped()
+        pose_msg.header = state.header
+
+        pose_msg.pose.position.x = x_des[0]
+        pose_msg.pose.position.y = x_des[1]
+        pose_msg.pose.position.z = x_des[2]
+
+        pose_msg.pose.orientation.x = q_des.x
+        pose_msg.pose.orientation.y = q_des.y
+        pose_msg.pose.orientation.z = q_des.z
+        pose_msg.pose.orientation.w = q_des.w
+
+        self.goal_pub.publish(pose_msg)
 
         return
 
@@ -177,8 +208,8 @@ class SE3Controller(object):
             twist_cmd.twist.angular.y = 0
             twist_cmd.twist.angular.z = 0
 
-            rospy.logdebug("Twist = %s", str(twist_cmd))
             self.twist_pub.publish(twist_cmd)
+            self.publishGoal(self.curr_state)
 
         return
 
@@ -192,6 +223,18 @@ class SE3Controller(object):
                 motor_cmd.voltage.append(1 * self.max_voltage)
 
             self.motor_pub.publish(motor_cmd)
+
+        return
+
+    def run(self):
+        """Node mainloop.
+
+        Receives messages and publishes commands.
+        """
+        r = rospy.Rate(self.update_rate)
+        while not rospy.is_shutdown():
+            self.twistUpdate()
+            r.sleep()
 
         return
 
