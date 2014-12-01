@@ -3,9 +3,10 @@
 import numpy as np
 
 import rospy
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, Path
 from geometry_msgs.msg import TwistStamped, PoseStamped
 from std_msgs.msg import Header
+
 from hector_uav_msgs.msg import MotorCommand, Supply
 
 from python_utils import Geometry
@@ -16,11 +17,13 @@ class Trajectory(object):
 
     Class that represents a desired trajectory.
     """
-    def __init__(self, x_des, v_des, fwd_des, w_des):
+    def __init__(self, x_des, v_des, fwd_des, w_des, wait_time, period_time):
         self.x_des = x_des
         self.v_des = v_des
         self.fwd_des = fwd_des
         self.w_des = w_des
+        self.wait_time = wait_time
+        self.period_time = period_time
 
         return
 
@@ -67,10 +70,35 @@ class SE3Controller(object):
                                         queue_size=10)
 
         # Gains.
-        self.k_x = 0.5 * self.mass
-        self.k_v = 0.25 * self.mass
-        self.k_R = 10
-        self.k_w = 10
+        self.k_x = 4.0 * self.mass  # 1.0
+        self.k_v = 2.5 * self.mass  # 0.7
+        self.k_R = 15.0
+        self.k_w = 20.0
+
+        # Publish full path.
+        self.path = Path()
+        self.path.header = Header()
+        self.path.header.stamp = rospy.Time.now()
+        self.path.header.frame_id = "world"
+        t = np.linspace(self.trajectory.wait_time, trajectory.wait_time +
+                        trajectory.period_time, 100)
+        for ii in range(len(t)):
+            x_des = trajectory.position(t[ii])
+
+            pose_ii = PoseStamped()
+            pose_ii.header = Header()
+            pose_ii.header.stamp = rospy.Time.from_sec(self.path.header.stamp.to_sec() + t[ii] -
+                                                       trajectory.wait_time)
+
+            pose_ii.pose.position.x = x_des[0]
+            pose_ii.pose.position.y = x_des[1]
+            pose_ii.pose.position.z = x_des[2]
+
+            self.path.poses.append(pose_ii)
+
+        self.goal_path_pub = rospy.Publisher("/goal_path", Path,
+                                             queue_size=10)
+        self.goal_path_pub_factor = 100
 
         return
 
@@ -190,6 +218,9 @@ class SE3Controller(object):
 
         self.goal_pub.publish(pose_msg)
 
+        if pose_msg.header.seq % self.goal_path_pub_factor == 0:
+            self.goal_path_pub.publish(self.path)
+
         return
 
     def twistUpdate(self):
@@ -242,11 +273,12 @@ class SE3Controller(object):
 
 class HorizontalCircle(object):
     """Horizontal circle trajectory."""
-    def __init__(self, R=4, w=2*np.pi/10, wait_time=30):
+    def __init__(self, R, w, period_time, wait_time=20):
         super(HorizontalCircle, self).__init__()
         self.R = R
         self.w = w
         self.wait_time = wait_time
+        self.period_time = period_time
 
     def position(self, t):
         ret = None
@@ -297,6 +329,66 @@ class HorizontalCircle(object):
                              -self.w*np.sin(self.w*tt),
                              0])
 
+            ret = np.cross(f, fdot)
+
+        return ret
+
+
+class SlantedCircle(object):
+    """Slanted circle trajectory."""
+    def __init__(self, R=4, Z=1, H=5, w=2*np.pi/10, wait_time=20):
+        super(SlantedCircle, self).__init__()
+        self.R = R
+        self.Z = Z
+        self.H = H
+        self.w = w
+        self.wait_time = wait_time
+
+    def position(self, t):
+        ret = None
+        tt = t - self.wait_time
+
+        if t < self.wait_time:
+            ret = np.array([self.R, 0, self.H])
+        else:
+            ret = np.array([self.R*np.cos(self.w*tt),
+                            self.R*np.sin(self.w*tt),
+                            self.Z*np.sin(self.w*tt) + self.H])
+        return ret
+
+    def velocity(self, t):
+        ret = None
+        tt = t - self.wait_time
+
+        if t < self.wait_time:
+            ret = np.array([0, 0, 0])
+        else:
+            ret = np.array([-self.R * self.w * np.sin(self.w * tt),
+                            self.R * self.w * np.cos(self.w * tt),
+                            self.Z * self.w * np.cos(self.w * tt)])
+
+        return ret
+
+    def forward(self, t):
+        ret = None
+
+        if t < self.wait_time:
+            ret = np.array([0, 1, 0])
+        else:
+            v = self.velocity(t)
+            ret = v/np.linalg.norm(v)
+
+        return ret
+
+    def angularVelocity(self, t):
+        ret = None
+        dt = 1e-2
+
+        if t < self.wait_time:
+            ret = np.zeros(3)
+        else:
+            f = self.forward(t)
+            fdot = (self.forward(t + dt) - self.forward(t - dt)) / (2*dt)
             ret = np.cross(f, fdot)
 
         return ret
@@ -365,6 +457,69 @@ class VerticalCircle(object):
         return ret
 
 
+class Lissajous(object):
+    """Lissajous trajectory."""
+    def __init__(self, A, B, C, D, a, b, c, period_time, wait_time=10):
+        super(Lissajous, self).__init__()
+        self.A = A
+        self.B = B
+        self.C = C
+        self.D = D
+        self.a = a
+        self.b = b
+        self.c = c
+        self.wait_time = wait_time
+        self.period_time = period_time
+
+    def position(self, t):
+        ret = None
+        tt = t - self.wait_time
+
+        if t < self.wait_time:
+            ret = np.array([self.A, 0, self.D])
+        else:
+            ret = np.array([self.A * np.cos(self.a * tt),
+                            self.B * np.sin(self.b * tt),
+                            self.C * np.sin(self.c * tt) + self.D])
+        return ret
+
+    def velocity(self, t):
+        ret = None
+        tt = t - self.wait_time
+
+        if t < self.wait_time:
+            ret = np.array([0, 0, 0])
+        else:
+            ret = np.array([-self.A * self.a * np.sin(self.a * tt),
+                            self.B * self.b * np.cos(self.b * tt),
+                            self.C * self.c * np.cos(self.c * tt)])
+        return ret
+
+    def forward(self, t):
+        ret = None
+
+        if t < self.wait_time:
+            ret = np.array([0, 1, 0])
+        else:
+            v = self.velocity(t)
+            ret = v/np.linalg.norm(v)
+
+        return ret
+
+    def angularVelocity(self, t):
+        ret = None
+        dt = 1e-2
+
+        if t < self.wait_time:
+            ret = np.zeros(3)
+        else:
+            f = self.forward(t)
+            fdot = (self.forward(t + dt) - self.forward(t - dt)) / (2*dt)
+            ret = np.cross(f, fdot)
+
+        return ret
+
+
 def main():
     """Main method.
 
@@ -374,12 +529,16 @@ def main():
     try:
         print "Running se3_controller..."
 
-        # traj = HorizontalCircle(4, 2*np.pi/6)
-        traj = VerticalCircle()
+        traj = HorizontalCircle(6, 2*np.pi/9, 9, 10)
+        # traj = VerticalCircle()
+        # traj = SlantedCircle(4, 3, 5, 2*np.pi/7)
+        # traj = Lissajous(6, 6, 4, 5, 3*2*np.pi/25.0, 2*np.pi/12.5, 2*np.pi/25, 25)
         trajectory = Trajectory(traj.position,
                                 traj.velocity,
                                 traj.forward,
-                                traj.angularVelocity)
+                                traj.angularVelocity,
+                                traj.wait_time,
+                                traj.period_time)
 
         se3_controller = SE3Controller(trajectory)
         se3_controller.run()
