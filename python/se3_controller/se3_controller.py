@@ -334,129 +334,6 @@ class HorizontalCircle(object):
         return ret
 
 
-class SlantedCircle(object):
-    """Slanted circle trajectory."""
-    def __init__(self, R=4, Z=1, H=5, w=2*np.pi/10, wait_time=20):
-        super(SlantedCircle, self).__init__()
-        self.R = R
-        self.Z = Z
-        self.H = H
-        self.w = w
-        self.wait_time = wait_time
-
-    def position(self, t):
-        ret = None
-        tt = t - self.wait_time
-
-        if t < self.wait_time:
-            ret = np.array([self.R, 0, self.H])
-        else:
-            ret = np.array([self.R*np.cos(self.w*tt),
-                            self.R*np.sin(self.w*tt),
-                            self.Z*np.sin(self.w*tt) + self.H])
-        return ret
-
-    def velocity(self, t):
-        ret = None
-        tt = t - self.wait_time
-
-        if t < self.wait_time:
-            ret = np.array([0, 0, 0])
-        else:
-            ret = np.array([-self.R * self.w * np.sin(self.w * tt),
-                            self.R * self.w * np.cos(self.w * tt),
-                            self.Z * self.w * np.cos(self.w * tt)])
-
-        return ret
-
-    def forward(self, t):
-        ret = None
-
-        if t < self.wait_time:
-            ret = np.array([0, 1, 0])
-        else:
-            v = self.velocity(t)
-            ret = v/np.linalg.norm(v)
-
-        return ret
-
-    def angularVelocity(self, t):
-        ret = None
-        dt = 1e-2
-
-        if t < self.wait_time:
-            ret = np.zeros(3)
-        else:
-            f = self.forward(t)
-            fdot = (self.forward(t + dt) - self.forward(t - dt)) / (2*dt)
-            ret = np.cross(f, fdot)
-
-        return ret
-
-
-class VerticalCircle(object):
-    """Vertical circle trajectory."""
-    def __init__(self, R=2, H=10, w=2*np.pi/5, wait_time=20):
-        super(VerticalCircle, self).__init__()
-        self.R = R
-        self.H = H
-        self.w = w
-        self.wait_time = wait_time
-
-    def position(self, t):
-        ret = None
-        tt = t - self.wait_time
-
-        if t < self.wait_time:
-            ret = np.array([0, 0, self.H - self.R])
-        else:
-            ret = np.array([0.0,
-                            self.R*np.sin(self.w*tt),
-                            -self.R*np.cos(self.w*tt) + self.H])
-        return ret
-
-    def velocity(self, t):
-        ret = None
-        tt = t - self.wait_time
-
-        if t < self.wait_time:
-            ret = np.array([0, 0, 0])
-        else:
-            ret = np.array([0,
-                            self.w * self.R * np.cos(self.w * tt),
-                            self.w * self.R * np.sin(self.w * tt)])
-        return ret
-
-    def forward(self, t):
-        ret = None
-        tt = t - self.wait_time
-
-        if t < self.wait_time:
-            ret = np.array([0, 1, 0])
-        else:
-            ret = np.array([0,
-                            np.cos(self.w * tt),
-                            np.sin(self.w * tt)])
-
-        return ret
-
-    def angularVelocity(self, t):
-        ret = None
-        tt = t - self.wait_time
-
-        if t < self.wait_time:
-            ret = np.zeros(3)
-        else:
-            f = self.forward(t)
-            fdot = np.array([0,
-                             -self.w * np.sin(self.w * tt),
-                             self.w * np.cos(self.w * tt)])
-
-            ret = np.cross(f, fdot)
-
-        return ret
-
-
 class Lissajous(object):
     """Lissajous trajectory."""
     def __init__(self, A, B, C, D, a, b, c, period_time, wait_time=10):
@@ -530,8 +407,6 @@ def main():
         print "Running se3_controller..."
 
         traj = HorizontalCircle(6, 2*np.pi/9, 9, 10)
-        # traj = VerticalCircle()
-        # traj = SlantedCircle(4, 3, 5, 2*np.pi/7)
         # traj = Lissajous(6, 6, 4, 5, 3*2*np.pi/25.0, 2*np.pi/12.5, 2*np.pi/25, 25)
         trajectory = Trajectory(traj.position,
                                 traj.velocity,
