@@ -1,0 +1,558 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Short Sectioned Assignment
+% LaTeX Template
+% Version 1.0 (5/5/12)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% Original author:
+% Frits Wenneker (http://www.howtotex.com)
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+\documentclass[paper=letter, fontsize=11pt]{scrartcl} % A4 paper and 11pt font size
+
+\usepackage[margin=1.0in]{geometry}
+
+\usepackage[T1]{fontenc} % Use 8-bit encoding that has 256 glyphs
+%\usepackage{fourier} % Use the Adobe Utopia font for the document - comment this line to return to the LaTeX default
+\usepackage[english]{babel} % English language/hyphenation
+\usepackage{amsmath,amsfonts,amsthm} % Math packages
+
+\usepackage{sectsty} % Allows customizing section commands
+%\allsectionsfont{\centering\normalfont\scshape} % Make all sections centered, the default font and small caps
+%\allsectionsfont{\scshape} % Make all sections centered, the default font and small caps
+
+\usepackage{fancyhdr} % Custom headers and footers
+\pagestyle{fancyplain} % Makes all pages in the document conform to the custom headers and footers
+\fancyhead{} % No page header - if you want one, create it in the same way as the footers below
+\fancyfoot[L]{} % Empty left footer
+\fancyfoot[C]{} % Empty center footer
+\fancyfoot[R]{\thepage} % Page numbering for right footer
+\renewcommand{\headrulewidth}{0pt} % Remove header underlines
+\renewcommand{\footrulewidth}{0pt} % Remove footer underlines
+\setlength{\headheight}{13.6pt} % Customize the height of the header
+
+\numberwithin{equation}{section} % Number equations within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+\numberwithin{figure}{section} % Number figures within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+\numberwithin{table}{section} % Number tables within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+
+%\setlength\parindent{0pt} % Removes all indentation from paragraphs - comment this line for an assignment with lots of text
+
+% For code blocks.
+\usepackage{listings}
+
+% For figures.
+\usepackage{graphicx}
+\usepackage{subcaption}
+
+% For subsection formatting.
+\renewcommand{\thesubsection}{(\alph{subsection})}
+
+\usepackage{titlesec}
+\titleformat{\subsection}[runin]{\normalfont\large}{\thesubsection}{1em}{}
+
+%----------------------------------------------------------------------------------------
+%	TITLE SECTION
+%----------------------------------------------------------------------------------------
+
+\newcommand{\horrule}[1]{\rule{\linewidth}{#1}} % Create horizontal rule command with 1 argument of height
+
+\title{	
+\normalfont \normalsize 
+%\textsc{university, school or department name} \\ [25pt] % Your university, school and/or department name(s)
+\horrule{0.5pt} \\[0.4cm] % Thin top horizontal rule
+\huge MIT 16.31 - Homework 1 \\ % The assignment title
+\horrule{2pt} \\[0.5cm] % Thick bottom horizontal rule
+}
+
+\author{W. Nicholas Greene} % Your name
+
+\date{\normalsize2014.09.22} % Today's date or a custom date
+
+\begin{document}
+
+\maketitle % Print the title
+
+%----------------------------------------------------------------------------------------
+%	PROBLEM 1
+%----------------------------------------------------------------------------------------
+\section{}
+\subsection{} 
+For $G_c(s)G_p(s) = \frac{K}{(s^2 + 6s + 8)(s^2 + 2s + 5)}$, there are no open loop zeros
+and four open loop poles since the denominator of $G_c(s)G_p(s)$ is a fourth order polynomial.
+Solving for the roots of the denominator we have open loop poles at $\{-2, -4, -1 + 2j, -1 - 2j\}$.
+The closed loop poles on the root locus will start at the open loop poles for $K = 0$, and
+then converge to open loop zeros. Since there are no open loop zeros, the closed loop poles
+will diverge to infinity with asymptotes at $\frac{\pi \pm 2\pi i}{4} = \pi/4 \pm (\pi/2) i$ 
+for $i = 0, 1, \ldots$. The 
+origin of the asymptotes will lie at $(-2 - 4 + (-1 + 2j) + (-1 - 2j))/4 = -2$. Finally,
+since there are an odd number of poles/zeros to the right of the the pole at $-4$, 
+the real-line between $-4$ and $-2$ will also reside on the locus, resulting in 
+following figure:
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.6\textwidth]{1a_rlocus}
+%  \caption{New views after reconstructing scene depths with Simple World assumption.}
+\end{figure}
+
+\subsection{}
+For $G_c(s)G_p(s) = \frac{K(s^2 + 4.5s + 5.625)}{s(s+1)(s+2)}$, we have two open loop zeros 
+at $\{-2.25 + 0.75j, -2.25 - 0.75j\}$ and three open loop poles at
+$\{0, -2, -1\}$. Using the real-line rule, the real line to the left of $-2$ will lie on 
+the locus, as well as the 
+segment between $-1$ and $0$. Since we have one more pole than zeros, we will have one 
+asymptote at $\pi$, satisfied by the pole at $-2$.. The poles at $-1$ and $0$ will move 
+closer together on the real axis before converging to the complex zeros resulting in:
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.6\textwidth]{1b_rlocus}
+%  \caption{New views after reconstructing scene depths with Simple World assumption.}
+\end{figure}
+
+\subsection{}
+For $G_c(s)G_p(s) = \frac{K(s+5)}{s^4 - 9s^2}$, we will have one open loop zero at $-5$ 
+and four open loop poles at $\{0, 0, -3, 3\}$. Since we have three more poles than zeros, 
+the root locus will have asymptotes at $\pi/3 + (2\pi/3) i$ for $i = 0, 1, \ldots$. Using the
+real-line rule, the segments from $[-3, 0]$ and $[0, 3]$ will lie on the locus. One of the poles
+at $0$ and the pole at $3$ will converge together before breaking away on asymptotes at $\pi/3$ and 
+$-\pi/3$. The other pole at $0$ will converge with $-3$. When they meet, one will split off
+towards the open loop pole at $-5$, while the other continues on the real axis towards 
+negative infinity.
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.6\textwidth]{1c_rlocus}
+%  \caption{New views after reconstructing scene depths with Simple World assumption.}
+\end{figure}
+
+%----------------------------------------------------------------------------------------
+%	PROBLEM 2
+%----------------------------------------------------------------------------------------
+\pagebreak
+\section{}
+\subsection{} 
+To plot the root locus, we must first compute the closed loop transfer function. By following
+the signal from the output to the input, we arrive at the following relation:
+\begin{align*}
+\theta(s) &= G_p(s) [K_p(\theta_c(s) - \theta(s)) - sK_d \theta(s)].
+\end{align*}
+After rearranging terms we arrive at the closed loop transfer function
+\begin{align*}
+\frac{\theta(s)}{\theta_c(s)} &= \frac{K_pG_p(s)}{1 + K_pG_p(s) + sK_dG_p(s)}.
+\end{align*}
+
+With $K_d = 0$, the denominator of the transfer function becomes
+\begin{align*}
+1 + K_pG_p(s)
+\end{align*}
+where we see that the open loop system is just $G_p(s) = \frac{0.9}{(s^2 - 0.03)}$ with no
+zeros and two poles at $\pm \sqrt{0.03}$. With more poles than zeros, the closed loop poles
+will tend towards asymptotes at $\pi/2 \pm \pi i$ for $i = 0, 1, \ldots$. The origin of the
+asymptotes will lie at $0$ and the segment between $\pm \sqrt{0.03}$ will also lie on the
+locus. Thus, we have the following behavior:
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.6\textwidth]{2a_rlocus}
+%  \caption{New views after reconstructing scene depths with Simple World assumption.}
+\end{figure}
+
+We see here the the system is unstable when $K$ is small (the pole at $+\sqrt{0.03}$)
+and becomes marginally stable when $K$ is large, but oscillatory 
+(the convergence to the imaginary axis). 
+At no point is the system strictly stable, no matter the value of $K$.
+
+\subsection{}
+We wish to set $K_p$ and $K_d$ such that the closed loop poles lie at $s = -0.2 \pm 0.3j$.
+By manipulating the denominator of the transfer function we have
+\begin{align*}
+1 + K_pG_p(s) + sK_dG_p(s) &= 1 + K_p \frac{0.9}{s^2 - 0.03} + sK_d\frac{0.9}{s^2 - 0.03}.
+\end{align*}
+Multiplying through by $s^2 - 0.03$ and setting to zero yields the following constraint(s)
+that $K_p$ and $K_d$ must satisfy when $s = -0.2 \pm 0.3j$:
+\begin{align*}
+s^2 + 0.9K_ds + 0.9K_p - 0.03 = 0.
+\end{align*}
+We note that with the relationship $(s - p_1)(s - p_2) = s^2 - s(p_1 + p_2) + p_1p_2$, we see
+that
+\begin{align*}
+0.9K_d &= - (-0.2 + 03j + -0.2 - 0.3j) \\
+0.9K_p - 0.03 &= (-0.2 + 0.3j)(-0.2 - 0.3j),
+\end{align*}
+which gives us $K_p = 8/45$ and $K_d = 4/9$.
+
+\subsection{}
+With $K_d = 4/9$, the root locus becomes
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.6\textwidth]{2c_rlocus}
+%  \caption{New views after reconstructing scene depths with Simple World assumption.}
+\end{figure}
+
+from which we can see that the system is stable for appropriate values of $K_p > 0$.
+
+\subsection{}
+With $K_d = 4/9$ and $K_p = 1$, the impulse response of the closed loop system is
+\begin{align*}
+h(t) &= (9/\sqrt{83}) \exp(-t/5) \sin(\sqrt{83}t/10)
+\end{align*}
+with the following behavior:
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.55\textwidth]{2d_impulse}
+%  \caption{New views after reconstructing scene depths with Simple World assumption.}
+\end{figure}
+
+%----------------------------------------------------------------------------------------
+%	PROBLEM 3
+%----------------------------------------------------------------------------------------
+\section{}
+To find the range of $\lambda$ for which the system is stable for all $K > 0$, we first find
+the closed loop tranfer function. Considering the inner velocity control loop we have
+\begin{align*}
+V(s) &= (\frac{10}{s+11})(\frac{K}{s + \lambda})(Z(s) - V(s))
+\end{align*}
+where $Z(s)$ is the velocity error. Solving for $V(s)/Z(s)$ yields
+\begin{align*}
+\frac{V(s)}{Z(s)} &= \frac{(\frac{10}{s+11})(\frac{K}{s + \lambda})}{1 + (\frac{10}{s+11})(\frac{K}{s + \lambda})} \\
+&= \frac{10K}{(s+11)(s+\lambda) + 10K}.
+\end{align*}
+
+The outer loop then must satisfy 
+\begin{align*}
+Y(s) &= \frac{1}{s}\frac{V(s)}{Z(s)}(R(s) - Y(s)
+\end{align*}
+such that $Y(s)/R(s)$ is given by
+\begin{align*}
+\frac{Y(s)}{R(s)} &= \frac{\frac{1}{s}\frac{V(s)}{Z(s)}}{1 + \frac{1}{s}\frac{V(s)}{Z(s)}}.
+\end{align*}
+
+We must now rearrange the denominator of $Y(s)/R(s)$ into the form $1 + KL(s)$ in order to apply
+the root locus methods. We therefore have
+\begin{align*}
+1 + \frac{1}{s}\frac{V(s)}{Z(s)} &= 0 \\
+&= 1 + \frac{1}{s}\left(\frac{10K}{(s+11)(s+\lambda) + 10K}\right) \\
+&= s + \frac{10K}{(s+11)(s+\lambda) + 10K} \\
+&= s(s+11)(s+\lambda) + s10K + 10K \\
+&= s(s+11)(s+\lambda) + K(s10 + 10) \\
+&= 1 + K \frac{10(s + 1)}{s(s+11)(s+\lambda)},
+\end{align*}
+from which we can see that $L(s) = \frac{10(s + 1)}{s(s+11)(s+\lambda)}$. 
+
+The open loop system has one zero at $-1$ and three poles at $\{0, -11, -\lambda\}$. 
+One of the poles will converge to the zero at $-1$, while the other two will trend towards 
+asymptotes at $\pi/2 \pm \pi i$ for $i = 0, 1, \ldots$ with origin at $O = (-11 - \lambda + 1)/2 = -(10 + \lambda)/2$.
+For the system to be stable for all $K > 0$, all of the open loop poles must have
+a negative real component less than or equal zero so that the system will be stable when 
+$K$ is small. This puts the constraint that $\lambda \geq 0$. For the system to be stable
+when $K$ is large, we must place $O$ such that it is strictly less than zero yielding 
+$-(10 + \lambda)/2 < 0 \implies \lambda > -10$. The combination of these constraints leads to 
+$\lambda \geq 0$.
+
+For $\lambda = 1$, the roots locus is the following:
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.6\textwidth]{3_rlocus}
+%  \caption{New views after reconstructing scene depths with Simple World assumption.}
+\end{figure}
+
+%----------------------------------------------------------------------------------------
+%	PROBLEM 4
+%----------------------------------------------------------------------------------------
+\section{}
+\subsection{}
+The closed loop transfer function of the system in question is 
+\begin{align*}
+\frac{Y(s)}{U(s)} &= \frac{G_p(s)G_c(s)}{1 + G_p(s)G_c(s)},
+\end{align*}
+where the denominator expands to
+\begin{align*}
+1 + G_p(s)G_c(s) &= 1 + K(\frac{s-2}{s})(\frac{s+z}{s+p}).
+\end{align*}
+From here we can see that the system has two open loop zeros at $\{2, -z\}$ and two open loop
+poles at $\{0, -p\}$.
+
+From the root locus rules, we know that the closed loop poles will start at the open loop poles
+when $K$ is small and converge to the open loop zeros when $K$ is large. In order for the 
+system to be strictly stable for some range of $K$, we must ``pull'' the pole at $0$ away 
+from the zero at $2$, into the negative-real half of the complex plane, while also making
+sure the pole at $-p$ lies in the negative-real half as well. We can do this
+by making $p > 0$ and  making sure there are an odd number of poles/zeros
+to the right of $-p$ by making $z < 0$. Choosing $p = 1$ and $z = -1$, the root locus is given
+below and we can see that the system is strictly stable for some range of $K$.
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.6\textwidth]{4a_rlocus}
+%  \caption{New views after reconstructing scene depths with Simple World assumption.}
+\end{figure}
+
+To find this range, we will substitute $s = j\alpha$ into
+the characteristic polynomial (representing the crossing of the imaginary axis) and solve for $K$.
+With $p = 1$ and $z = -1$, the characteristic polynomial is 
+\begin{align*}
+\phi(s) &= 1 + K (\frac{s - 2}{s}) (\frac{s - 1}{s + 1}) \\
+&= 0.
+\end{align*}
+Solving for $K$, we have $K = \frac{-s(s + 1)}{(s-2)(s-1)}$. We substitute $s = j\alpha$ to obtain
+\begin{align*}
+K &= \frac{-j\alpha(j\alpha + 1)}{(j\alpha - 2)(j\alpha - 1)} \\
+&= \frac{\alpha^2 - j \alpha}{(2-\alpha^2) - j3\alpha}.
+\end{align*}
+We note that complex division is defined as 
+\begin{align*}
+\frac{a + jb}{c + jd} &= \frac{ac + bd}{c^2 + d^2} + j\frac{bc - ad}{c^2 + d^2}
+\end{align*}
+and apply this definition to the expression for $K$ with $a = \alpha^2$, $b = -\alpha$,
+$c = 2 - \alpha^2$, and $d = -3\alpha$ yielding
+\begin{align*}
+K &= \frac{\alpha^2(5 - \alpha^2)}{(2-\alpha^2)^2 + 9\alpha^2} 
+     + j\frac{\alpha(-2 + 4\alpha^2)}{(2-\alpha^2)^2 + 9\alpha^2}.
+\end{align*}
+
+We know that $K$ must be real and positive, so we set $\Im(K) = 0$, which reduces to
+\begin{align*}
+\alpha(-2 + 4\alpha^2) &= 0,
+\end{align*}
+from which we can see that $\alpha = \{0, \pm 1/\sqrt{2}\}$. The solution $\alpha = 0$ 
+represents the locus crossing the origin at $K = 0$, while $\alpha = \pm 1/\sqrt{2}$ represents
+the crossing of the imaginary axis at $K > 0$. We substitute these solutions into the
+expression for $K$ and and find that the root locus crosses the imaginary axis at $K = 1/3$.
+Thus, for the system to be strictly stable, $0 < K < 1/3$.
+
+\subsection{}
+We must now pick a specific $K$ such that the system is strictly stable, the damping ratio $\zeta$
+is between $0.4$ and $0.6$, and the natural frequency $w_n$ is minimized. Inspecting the 
+root locus plot, we see that the natural frequncy $w_n$ will be minimized when the 
+damping ratio $\zeta$ is maximized. Thus, we set $\zeta = 0.6$ and solve for $w_n$ to find
+$K$.
+
+The relationship between the complex $s$ variable and $w_n$ and $\zeta$ is given by 
+\begin{align*}
+s &= -\zeta w_n + j w_n \sqrt{1 - \zeta^2} \\
+&= w_n(-0.6 + j 0.8).
+\end{align*}
+We substitute this expression into that for $K$ to obtain
+\begin{align*}
+K &= \frac{-s(s + 1)}{(s-2)(s-1)} \\
+&= \frac{(0.28 w_n^2 + 0.6 w_n) + j (0.96 w_n^2 - 0.8 w_n)}{(-0.28 w_n^2 + 1.8 w_n + 2) + j(-0.96 w_n^2 - 2.4 w_n)}.
+\end{align*}
+We apply the same procedure as before, applying the complex division operation and
+setting the imaginary component of the quotient to zero, yielding the following
+constraint:
+\begin{align*}
+\Im(K) &= \eta w_n(w_n^2 + 0.6 w_n - 0.5) \\
+&= 0,
+\end{align*}
+where $\eta$ is the normalizer. Solving the above equation results in three solutions, 
+$w_n = \{-1.068, 0, 0.468\}$. We take the positive solution and find that the required
+value of $K$ is $K = 0.123$.
+
+%----------------------------------------------------------------------------------------
+%	PROBLEM 5
+%----------------------------------------------------------------------------------------
+\section{}
+I spent roughly 10 hours on this problem set, including typesetting. 
+
+%% %----------------------------------------------------------------------------------------
+%% %	PROBLEM 2
+%% %----------------------------------------------------------------------------------------
+%% \section{Orthographic Projection}
+
+%% Given the described scene-camera geometry, and assuming the center of the image will be 
+%% defined as pixel $(x_0, y_0)$ and the scale factor between world units and image units is 
+%% $\alpha$, we can derive the transform from world to image coordinates as follows. 
+
+%% Starting with the $x$ coordinate, we note that since the center of the camera lies in the 
+%% $X=0$ plane and the image $x$-axis is aligned with the world $X$-axis, $x(X, Y, Z) = \alpha X + x_0$.
+%% We see that the $X$ coordinate is scaled to pixel units via $\alpha$ and the addition of $x_0$
+%% ensures that $X = 0$ is mapped to $x_0$ as desired.
+
+%% To derive $y$ we may ignore the $X$ dimension and only consider the $YZ$-plane. When viewed
+%% from this perspective we note that the image plane is tilted forward from vertical by $\theta$ 
+%% radians such that the unit vector $(\cos \theta, -\sin \theta)$ lies parallel to the $y$-axis
+%% in world coordinates. The $y$ coordinate of a point $(Y, Z)$ will be the projection onto 
+%% this vector (suitably scaled and shifted). We see that 
+%% $(\cos \theta, -\sin \theta) \cdot (Y, Z) = Y \cos \theta - Z \sin \theta$, which represents
+%% the projection of the point $(Y, Z)$ onto the image plane. Finally we must scale the vector to
+%% pixel units via $\alpha$ and add $y_0$ to ensure that the center pixel is as desired yielding
+%% $y(X, Y, Z) = \alpha(Y \cos(\theta) - Z \sin(\theta)) + y_0$, completing the derivation.
+
+%% %----------------------------------------------------------------------------------------
+%% %	PROBLEM 3
+%% %----------------------------------------------------------------------------------------
+%% \section{Constraints}
+
+%% To derive the linear constraints on $Z(x, y)$, we first note the projection equations:
+%% \begin{align*}
+%% x(X, Y, Z) &= \alpha X + x_0 \\
+%% y(X, Y, Z) &= \alpha Y \cos(\theta) - \alpha Z \sin(\theta) + y_0.
+%% \end{align*}
+
+%% In our reconstruction task, we are given $(x, y)$ and must find $(X, Y, Z)$. We start by 
+%% modifying the above equations to reflect our knowns and unknowns:
+%% \begin{align*}
+%% x &= \alpha X(x, y) + x_0 \\
+%% y &= \alpha Y(x, y) \cos(\theta) - \alpha Z(x, y) \sin(\theta) + y_0.
+%% \end{align*}
+%% We see that we can solve for $X$ directly as $X(x, y) = \frac{x - x_0}{\alpha}$, but 
+%% must introduce additional constraints for $Y$ and $Z$. 
+
+%% For $Z$, we note that in the Simple World all vertical world-edges will have a constant $Z$ 
+%% coodinate $c_z$ and appear as vertical image-edges. Thus, if we parameterize a vertical image-edge 
+%% as $E_{v}(x, y) = (c_x, y)$, where $c_x$ is a constant, and plug this parameterzation into our 
+%% equation for $Z$, we see that 
+%% \begin{align*}
+%% Z(x, y) &= Z(c_x, y) \\
+%% &= Z(y) \\
+%% &= \frac{Y(c_x, y)}{\tan(\theta)} - \frac{y}{\alpha \sin(\theta)} + \frac{y_0}{\alpha \sin(\theta)} \\
+%% &= c_z.
+%% \end{align*}
+%% Taking derivatives, we have:
+%% \begin{align*}
+%% \frac{\partial Z}{\partial y} &= \frac{\partial Y}{\partial y} \frac{1}{\tan(\theta)} - \frac{1}{\alpha \sin(\theta} \\
+%% &= \frac{1}{\alpha \cos(\theta)} \frac{1}{\tan(\theta)} - \frac{1}{\alpha \sin(\theta)} \\
+%% & = 0,
+%% \end{align*}
+%% where we have used the fact that $\partial Y / \partial y = 1 / (\alpha \cos(\theta))$, as
+%% described in the notes. Thus, we have 
+%% \begin{align*}
+%% \partial Z / \partial y = 0,
+%% \end{align*}
+%%  which we could have inferred
+%% simply from $Z(y) = c_z$ (derivative of a constant is 0), but this machinery will help us
+%% in the next section. Since the derivative operator is linear and can be represented by a
+%% suitable matrix, this gives us our first linear constraint.
+
+%% Now that we've encoded the constraints introduced by vertical world-edges, we now must 
+%% encode the constraints for horizontal world-edges. In the Simple World, these are projected
+%% to oblique image-edges with normal vector $\begin{bmatrix} n_x & n_y \end{bmatrix}^T$, 
+%% which we can parameterize as
+%% \begin{align*}
+%% E_h(t) &= t \begin{bmatrix} v_1 \\ v_2 \end{bmatrix} + \begin{bmatrix} k_x \\ k_y \end{bmatrix}, 
+%% \end{align*}
+%% where $\begin{bmatrix} v_1 & v_2 \end{bmatrix}^T = \begin{bmatrix} -n_y & n_x \end{bmatrix}^T$
+%% is the tangent vector to the edge and $k_x$ and $k_y$ are constants offsets. We plug this
+%% parameterzation into our equation for $Z$:
+%% \begin{align*}
+%% Z(-t n_y + k_x, t n_x + k_y) &= \frac{Y(-t n_y + k_x, t n_x + k_y)}{\tan(\theta)} - 
+%%      \frac{(t n_x + k_y)}{\alpha \sin(\theta)} + \frac{y_0}{\alpha \sin(\theta)} \\
+%% &= \frac{\beta}{\tan(\theta)} - \frac{(t n_x + k_y)}{\alpha \sin(\theta)} + \frac{y_0}{\alpha \sin(\theta)},
+%% \end{align*}
+%% where we have used the fact that horizontal world-edges must have the same $Y$ coordinate $\beta$.
+
+%% Taking the derivative with respect to $t$, we have $\partial Z / \partial t = -n_x / (\alpha \sin(\theta))$. 
+%% Since the derivative of $Z$ with respect to $t$ is the same as the derivative of $Z$ in the
+%% direction $\begin{bmatrix} -n_y & n_x \end{bmatrix}^T$, our linear constraint becomes:
+%% \begin{align*}
+%% \begin{bmatrix} -n_y & n_x \end{bmatrix}^T \begin{bmatrix} \partial Z / \partial x \\ \partial Z / \partial y \end{bmatrix}
+%% &= \frac{-n_x}{\alpha \sin(\theta)}.
+%% \end{align*}
+
+%% Lastly, we must enforce the planarity constraints:
+%% \begin{align*}
+%% \partial^2 Z / \partial x^2 &= 0 \\
+%% \partial^2 Z / \partial y^2 &= 0 \\
+%% \partial^2 Z / \partial x \partial y &= 0,
+%% \end{align*}
+%% which ensure that surfaces are planar and do not curve in the $Z$ dimension.
+
+%% %----------------------------------------------------------------------------------------
+%% %	PROBLEM 4
+%% %----------------------------------------------------------------------------------------
+%% \section{Approximation of derivatives}
+
+%% Lines 166
+%% \lstset{language=Matlab}
+%% \begin{lstlisting}[frame=single]  % Start your code-block
+
+%% % Derivative operators.
+%% DH = [-1, 0, 1; -2, 0, 2; -1, 0, 1]/8;
+%% DV = DH';
+
+%% % Edge normal vector.
+%% d_norm = sqrt(dx^2 + dy^2);
+%% nx = dx/d_norm;
+%% ny = dy/d_norm;
+
+%% Aij(:,:,c) = -ny*DH + nx*DV; %!!!! FILL MISSING KERNEL HERE;
+%% \end{lstlisting}
+
+
+%% Line 180
+%% \begin{lstlisting}[frame=single]  % Start your code-block
+
+%% Aij(:,:,c) = 0.1*[0 0 0; -1 2 -1; 0 0 0]'; %!!!! FILL MISSING KERNEL HERE;
+%% \end{lstlisting}
+
+%% %----------------------------------------------------------------------------------------
+%% %	PROBLEM 5
+%% %----------------------------------------------------------------------------------------
+%% \section{Run the code}
+%% Below are new views from \texttt{img1.jpg} and \texttt{img2.jpg}.
+%% \begin{figure}[h!]
+%%   \centering
+%%   \begin{subfigure}[b]{0.45\textwidth}
+%%     \includegraphics[width=\textwidth]{img1_new_view}
+%%     \caption{New view from \texttt{img1.jpg}}
+%%   \end{subfigure}
+%%   \begin{subfigure}[b]{0.45\textwidth}
+%%     \includegraphics[width=\textwidth]{img2_new_view}
+%%     \caption{New view from \texttt{img2.jpg}}
+%%   \end{subfigure}
+%%   \caption{New views after reconstructing scene depths with Simple World assumption.}
+%% \end{figure}
+
+%% %----------------------------------------------------------------------------------------
+%% %	PROBLEM 6
+%% %----------------------------------------------------------------------------------------
+%% \pagebreak
+%% \section{Violating simple world assumptions}
+%% Below are new views from \texttt{img3.jpg} and \texttt{img4.jpg} that demonstrate
+%% reconstruction errors.
+%% \begin{figure}[h!]
+%%   \centering
+%%   \begin{subfigure}[b]{0.45\textwidth}
+%%     \includegraphics[width=\textwidth]{img3_new_view}
+%%     \caption{New view from \texttt{img3.jpg}}
+%%   \end{subfigure}
+%%   \begin{subfigure}[b]{0.45\textwidth}
+%%     \includegraphics[width=\textwidth]{img4_new_view}
+%%     \caption{New view from \texttt{img4.jpg}}
+%%   \end{subfigure}
+%%   \caption{New views after reconstructing scene depths.}
+%% \end{figure}
+
+%% If we look at the edges computed from the edge-detection step we can see from where the 
+%% problem stems.
+
+%% \begin{figure}[h!]
+%%   \centering
+%%   \begin{subfigure}[b]{0.45\textwidth}
+%%     \includegraphics[width=\textwidth]{img3_edges}
+%%     \caption{Edges from \texttt{img3.jpg}}
+%%   \end{subfigure}
+%%   \begin{subfigure}[b]{0.45\textwidth}
+%%     \includegraphics[width=\textwidth]{img4_edges}
+%%     \caption{Edges from \texttt{img4.jpg}}
+%%   \end{subfigure}
+%%   \caption{Faulty edge detectors.}
+%% \end{figure}
+%% Here we can see that at least one edge from the green cube (right side in the input images) is not
+%% detected using our simple, derivative based edge detector. This missing edge makes one face of the
+%% cube bleed into the ground since the vertical occlusion edge (in \texttt{img3.jpg}) or the 
+%% horizontal contact edge (in \texttt{img4.jpg}) constraints are no longer active.
+
+%% %----------------------------------------------------------------------------------------
+%% %	PROBLEM 6
+%% %----------------------------------------------------------------------------------------
+%% \section{Research problem - the real world (optional)}
+
+
+\end{document}
