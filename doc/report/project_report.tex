@@ -58,7 +58,7 @@
 \renewcommand{\thesubsection}{(\alph{subsection})}
 
 \usepackage{titlesec}
-\titleformat{\subsection}[runin]{\normalfont\large}{\thesubsection}{1em}{}
+%\titleformat{\subsection}[runin]{\normalfont\large}{\thesubsection}{1em}{}
 
 %----------------------------------------------------------------------------------------
 %	TITLE SECTION
@@ -99,12 +99,45 @@ This project focuses on the implementation of a modern, nonlinear controller for
 I implemented a modified version of this controller in Python and validated the algorithm 
 in simulation using the \texttt{hector\_quadrotor} simulator - a software package that simulates the
 dynamics of a quadrotor using the Robot Operating System (ROS) and the Gazebo robot
-simulation toolkit \cite{2012simpar_meyer, quigley2009ros, koenig2004design}. 
+simulation toolkit \cite{2012simpar_meyer, quigley2009ros, koenig2004design}. Results
+show that the controller is able to successfully track aggressive trajectories with 
+significant linear and angular accelerations.
 
 %----------------------------------------------------------------------------------------
 % Geometric Control on SE3
 %----------------------------------------------------------------------------------------
 \section{Geometric Control on SE(3)}
+Controlling a quadrotor's six degrees of freedom (3D position and 3D orientation) is a
+non-trivial task for several reasons. First, the dynamics involved are non-linear, which
+makes linear control schemes  such as proportional-integral-derivative (PID) controllers or 
+linear quadratic regulators (LQR) less attractive. Second, the quadrotor system state
+does not lie in Euclidean space, but on the special Euclidean group SE(3) - the manifold composed
+of 3D positions and 3D orientations ($\textrm{SE}(3) = \{\mathbb{R}^3 \times \textrm{SO}(3)\}$
+where SO(3) is the special orthogonal group representing 3D rotations).
+Finally, the system can only be controlled via the forces and torques produced by its
+four rotors. (While this arrangement is beneficial from a modelling complexity standpoint, 
+it requires the interactions of all the rotors to effectively control the vehicle).
+
+\subsection{Dynamics Model}
+The equations governing the quadrotor's dynamics follow directly from Newton's second law
+of motion:
+\begin{align}
+\dot{x} &= v \\
+m \dot{v} &= m g e_3 - f R e_3 \\
+\dot{R} &= R \hat{\Omega} \\
+M &= J \hat{\Omega} + \Omega \times J\Omega
+\end{align}
+where $x$ and $v$ are the system's position and velocity, $R$ and $\Omega$
+are the orientation (represented as a rotation matrix) and angular velocity (in the 
+body frame), $m$ and $J$ are the mass and intertia matrix (in the body frame), $f$ is the
+total thrust from the rotors, $g$
+is the gravitational acceleration constant, $e_3$ is the downward pointing unit vector
+in the standard (Right-Foward-Down) basis, and $\hat{\cdot}: \mathbb{R}^3 \rightarrow \textrm{so}(3)$
+is the \textit{hat} operator, which maps vectors in $\mathbb{R}^3$ to the set of $3 \times 3$
+skew-symmetric matrices (i.e. the Lie algebra so(3) associated with SO(3)).
+
+\subsection{Tracking Errors}
+\subsection{Tracking Controller}
 
 %----------------------------------------------------------------------------------------
 % Implementation
