@@ -406,7 +406,7 @@ def main():
     try:
         print "Running se3_controller..."
 
-        # traj = HorizontalCircle(6, 2*np.pi/9, 9, 10)
+        # traj = HorizontalCircle(6, 2*np.pi/9, 9, 9)
         traj = Lissajous(6, 6, 4, 5, 3*2*np.pi/25.0, 2*np.pi/12.5, 2*np.pi/25, 25)
         trajectory = Trajectory(traj.position,
                                 traj.velocity,
