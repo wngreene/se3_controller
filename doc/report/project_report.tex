@@ -85,23 +85,31 @@
 %----------------------------------------------------------------------------------------
 % Introduction
 %----------------------------------------------------------------------------------------
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.75\textwidth]{quadrotor_screenshot_cropped}
+  \caption{Simulated quadrotor using \texttt{hector\_quadrotor} \cite{2012simpar_meyer}.}
+\end{figure}
+
 \section{Introduction}
 Autonomous navigation and control of micro-aerial vehicles (MAVs) is an increasingly popular
-subject of academic research, with several key advances occurring over the last ten years. 
-Small, four-rotor craft (\textit{quadrotors}) are desirable platforms for this kind of 
-robotics research due to their ability to carry large sensor payloads and maintain stability 
-in the hover regime. There is significant interest, however, in having these types of vehicles 
-execute aggressive trajectories far from the hover state (e.g. flying quickly through 
+subject of academic research, with several key advances occurring over the last ten years.
+Small, four-rotor craft (\textit{quadrotors}) are desirable platforms for this kind of
+robotics research due to their ability to carry large sensor payloads and maintain stability
+in the hover regime. There is significant interest, however, in having these types of vehicles
+execute aggressive trajectories far from the hover state (e.g. flying quickly through
 cluttered environments such as buildings and forests).
 
 This project focuses on the implementation of a modern, nonlinear controller for stabilizing the
-3D position and yaw angle of a quadrotor far from the hover regime based on \cite{lee2010geometric}. 
-I implemented a modified version of this controller in Python and validated the algorithm 
+3D position and yaw angle of a quadrotor far from the hover regime based on \cite{lee2010geometric}.
+Aa modified version of this controller was implemented in Python and validated
 in simulation using the \texttt{hector\_quadrotor} simulator - a software package that simulates the
 dynamics of a quadrotor using the Robot Operating System (ROS) and the Gazebo robot
 simulation toolkit \cite{2012simpar_meyer, quigley2009ros, koenig2004design}. Results
-show that the controller is able to successfully track aggressive trajectories with 
+show that the controller is able to successfully track aggressive trajectories with
 significant linear and angular accelerations.
+
 
 %----------------------------------------------------------------------------------------
 % Geometric Control on SE3
@@ -109,13 +117,13 @@ significant linear and angular accelerations.
 \section{Geometric Control on SE(3)}
 Controlling a quadrotor's six degrees of freedom (3D position and 3D orientation) is a
 non-trivial task for several reasons. First, the dynamics involved are non-linear, which
-makes linear control schemes  such as proportional-integral-derivative (PID) controllers or 
+makes linear control schemes  such as proportional-integral-derivative (PID) controllers or
 linear quadratic regulators (LQR) less attractive. Second, the quadrotor system state
 does not lie in Euclidean space, but on the special Euclidean group SE(3) - the manifold composed
 of 3D positions and 3D orientations ($\textrm{SE}(3) = \{\mathbb{R}^3 \times \textrm{SO}(3)\}$
 where SO(3) is the special orthogonal group representing 3D rotations).
 Finally, the system can only be controlled via the forces and torques produced by its
-four rotors. (While this arrangement is beneficial from a modelling complexity standpoint, 
+four rotors. (While this arrangement is beneficial from a modelling complexity standpoint,
 it requires the interactions of all the rotors to effectively control the vehicle).
 
 \subsection{Dynamics Model}
@@ -125,316 +133,307 @@ of motion:
 \dot{x} &= v \\
 m \dot{v} &= m g e_3 - f R e_3 \\
 \dot{R} &= R \hat{\Omega} \\
-M &= J \hat{\Omega} + \Omega \times J\Omega
+M &= J \dot{\Omega} + \Omega \times J\Omega
 \end{align}
-where $x$ and $v$ are the system's position and velocity, $R$ and $\Omega$
-are the orientation (represented as a rotation matrix) and angular velocity (in the 
-body frame), $m$ and $J$ are the mass and intertia matrix (in the body frame), $f$ is the
-total thrust from the rotors, $g$
-is the gravitational acceleration constant, $e_3$ is the downward pointing unit vector
+where $x \in \mathbb{R}^3$ and $v \in \mathbb{R}^3$ are the system's position and velocity,
+$R \in \textrm{SO}(3)$ and $\Omega \in \mathbb{R}^3$
+are the orientation (represented as a rotation matrix) and angular velocity (in the
+body frame), $m \in \mathbb{R}$ and $J \in \mathbb{R}^{3 \times 3}$ are the mass
+and intertia matrix (in the body frame), $f \in \mathbb{R}$ and $M \in \mathbb{R}^3$ are the
+total thrust and torque from the rotors, $g \in \mathbb{R}$
+is the gravitational acceleration constant, $e_3 \in \mathbb{R}^3$ is the downward pointing unit vector
 in the standard (Right-Foward-Down) basis, and $\hat{\cdot}: \mathbb{R}^3 \rightarrow \textrm{so}(3)$
 is the \textit{hat} operator, which maps vectors in $\mathbb{R}^3$ to the set of $3 \times 3$
 skew-symmetric matrices (i.e. the Lie algebra so(3) associated with SO(3)).
 
-\subsection{Tracking Errors}
+The total thrust $f$ and torque $M = \begin{bmatrix} M_1 & M_2 & M_3\end{bmatrix}^T$
+are related to the thrust from each motor $f_i$ by a linear transform:
+\begin{align}
+  \begin{bmatrix}
+    f \\
+    M_1 \\
+    M_2 \\
+    M_3
+  \end{bmatrix}
+  &=
+  \begin{bmatrix}
+    1 & 1 & 1 & 1\\
+    0 & -d & 0 & d \\
+    d & 0 & -d & 0 \\
+    -c_{\tau f} & c_{\tau f} & -c_{\tau f} & c_{\tau f}
+  \end{bmatrix}
+  \begin{bmatrix}
+    f_1 \\
+    f_2 \\
+    f_3 \\
+    f_4
+  \end{bmatrix}
+\end{align}
+where $d > 0$ is the length from the vehicle's center of mass to the rotors and
+$c_{\tau f} > 0$ is a constant.
+
+Given these parameters, the matrix above is invertible and the net thrust $f$ and
+torque $M$ can be computed directly from the individual motor thrusts $f_i$.
+The control scheme in \cite{lee2010geometric} therefore considers these two
+quantities as the system's control inputs. Furthermore, the state of the system is considered
+to be the tuple $(x, v, R, \Omega)$ and is assumed to be directly observed.
+
 \subsection{Tracking Controller}
+The approach in \cite{lee2010geometric} relates errors in the state space to the
+control inputs needed to track a smooth trajectory $x_d(t) \in \mathbb{R}^3$ with
+a desired heading direction or yaw angle, which is parameterized by the unit forward-facing
+vector $f_d(t) \in \mathbb{R}^3$.
+
+Note that the quadrotor cannot control its
+position and orientation independently (it must pitch or roll to translate) and
+therefore two of the three degrees of freedom related to orientation are constrained
+by tracking the desired trajectory. The remaining degree of orientation freedom
+(the yaw angle) is then chosen to most closely match the projection of the
+desired forward vector $f_d(t)$ onto the horizontal plan defined by the quadrotor
+body, resulting in the goal orientation $R_d$.
+
+Finally, the control inputs $f$ and $m$ are determined by the following relations:
+\begin{align}
+  f &= -(-k_x e_x - k_v e_v -m g e_3 + m \ddot{x}_d) \cdot Re_3 \\
+  M &= -k_R e_R - k_{\Omega} e_{\Omega} + \Omega \times J \Omega
+       - J(\hat{\Omega}R^TR_d \Omega_d - R^TR_d \dot{\Omega}_d)
+\end{align}
+where $k_x$, $k_v$, $k_R$, and $k_{\Omega}$ are positive constants and
+$e_x$, $e_v$, $e_R$, and $e_{\Omega}$ are tracking errors defined by
+\begin{align}
+  e_x &= x - x_d \\
+  e_v &= v - v_d \\
+  e_R &= \frac{1}{2}(R_d^TR - R^TR_d)^{\vee} \\
+  e_{\Omega} &= \Omega - R^TR_d \Omega_d.
+\end{align}
+Note that $e_R$ and $e_{\Omega}$ are carefully formed to obey the topology of
+SO(3) and that the \textit{vee}-map $\cdot^{\vee}: \textrm{so}(3) \rightarrow \mathbb{R}^3$ is the
+inverse of the hat-map.
+
+%% TODO: Info on errors and projection stuff?
 
 %----------------------------------------------------------------------------------------
 % Implementation
 %----------------------------------------------------------------------------------------
 \section{Implementation}
+A modified version of the above controller was implemented in Python and validated
+in simulation using the \texttt{hector\_quadrotor} package \cite{2012simpar_meyer}
+and ROS Indigo \cite{quigley2009ros}.
+Unfortunately, however, the package does not easily support controlling the quadrotor's total
+thrust $f$ and torque $M$ (only the motor voltages and be directly set), so
+the approach in \cite{lee2010geometric} was adapted
+to take advantage of an existing PID velocity controller available in the
+stack.
+
+This simple controller was considered to be an inner loop
+of the system, resulting in new control inputs $v$ and $\Omega$. Using the
+error forms described above, a new controller was devised:
+\begin{align}
+  v &= -k_x e - k_v e_v + v_d \\
+  \Omega &= -k_R e_R - k_{\Omega} e_{\Omega} + \Omega_d.
+\end{align}
+
+Note that the form of $\Omega$ is not entirely correct as it does not obey the
+topology of SO(3). Furthermore, the low-level PID controllers rely on Euler angles
+and may therefore limit the full capabilities of the approach described in
+\cite{lee2010geometric}. Nevertheless, this scheme proved sufficient for
+executing complex trajectories in simulation using $k_x = 4m$, $k_v = 2.5m$,
+$k_R = 15$, and $k_{\Omega} = 20$.
 
 %----------------------------------------------------------------------------------------
 % Results
 %----------------------------------------------------------------------------------------
+\pagebreak
 \section{Results}
+The modified controller was tested on two simulated trajectories: a simple circular
+path (see Figure \ref{fig:circle_trajectory}) and a more complex path based on a
+Lissajous curve (see Figure \ref{fig:lissajous_trajectory}).
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{circle_trajectory}
+    \caption{Circular trajectory}
+    \label{fig:circle_trajectory}
+  \end{subfigure}%
+  ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc.
+    %(or a blank line to force the subfigure onto a new line)
+  \begin{subfigure}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{lissajous_trajectory}
+    \caption{Lissajous trajectory}
+    \label{fig:lissajous_trajectory}
+  \end{subfigure}
+  \caption{Desired trajectories (blue) with actual position (red).}
+  \label{fig:trajectories}
+\end{figure}
+
 \subsection{Circle Trajectory}
+The circular trajectory was defined by the following smooth parametric function:
+\begin{align}
+  x_d(t) &=
+  \begin{bmatrix}
+    R \cos(\omega t) \\
+    R \sin(\omega t) \\
+    Z
+  \end{bmatrix}
+\end{align}
+where the radius of the curve $R = 6$ m, the height of the curve $Z = 5$ m,
+and the period $T = 2 \pi / \omega = 9$ seconds.
 
+The forward vector was set to $f_d(t) = \frac{v_d(t)}{||v_d(t)||}$, where the
+velocity vector $v_d(t) = \dot{x}(t)$ is given by
+\begin{align}
+  v_d(t) &=
+  \begin{bmatrix}
+    -R \omega \sin(\omega t) \\
+    R \omega \cos(\omega t) \\
+    0
+  \end{bmatrix}.
+\end{align}
+
+Figure \ref{fig:circle_performance} shows the tracking performance
+of the controller. As one can see, the controller successfully tracks the circular
+path, with steady state errors under 10 cm  (although some overshoot is present initially).
+The RMSE for each component is shown in Table \ref{table:metrics}. Note that the
+error in the $y$ direction is dominated by the initial overshoot (the steady state
+error is less than 10 cm). The error for the forward direction was defined
+to be the angular distance between the desired forward vector (projected onto the
+horizontal body plane) and the actual forward vector and is less than 1.5 degrees.
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{circle_position}
+    \caption{Position}
+    \label{fig:circle_position}
+  \end{subfigure}%
+  ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc.
+    %(or a blank line to force the subfigure onto a new line)
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{circle_position_errors}
+    \caption{Position errors}
+    \label{fig:circle_position_errors}
+  \end{subfigure}
+
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{circle_yaw_pitch_roll}
+    \caption{Yaw, pitch, and roll}
+    \label{fig:circle_yaw_pitch_roll}
+  \end{subfigure}%
+  ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc.
+    %(or a blank line to force the subfigure onto a new line)
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{circle_fwd_error}
+    \caption{Forward error}
+    \label{fig:circle_fwd_error}
+  \end{subfigure}
+  ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc.
+    %(or a blank line to force the subfigure onto a new line)
+  \caption{Circle trajectory performance.}
+  \label{fig:circle_performance}
+\end{figure}
+
+\pagebreak
 \subsection{Lissajous Trajectory}
+The second trajectory was based on a Lissajous curve, defined by:
+\begin{align}
+  x_d(t) &=
+  \begin{bmatrix}
+    A \cos(\omega_a t) \\
+    B \sin(\omega_b t) \\
+    C \sin(\omega_c t) + Z
+  \end{bmatrix}
+\end{align}
+with $A = B = 6$ m, $C = 4$ m, $Z = 5$ m, $T_a = 2 \pi/ \omega_a = 8.33$ sec,
+$T_b = 12.5$ sec, and $T_c = 25$ sec.
 
+Again, the forward vector was set to $f_d(t) = \frac{v_d(t)}{||v_d(t)||}$, where the
+velocity vector $v_d(t) = \dot{x}(t)$ is given by
+\begin{align}
+  v_d(t) &=
+  \begin{bmatrix}
+    -A \omega_a \sin(\omega_a t) \\
+    B \omega_b \cos(\omega_b t) \\
+    C \omega_c \cos(\omega_c t)
+  \end{bmatrix}.
+\end{align}
+
+Figure \ref{fig:lissajous_performance} show the tracking
+performance for the controller. As once can see, the controller successfuly
+tracks this more aggressive trajectory, although the steady state errors are
+more significant than for the simpler cicular trajectory. The RMSE for each
+position and orientation component is shown in Table \ref{table:metrics}.
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{lissajous_position}
+    \caption{Position}
+    \label{fig:lissajous_position}
+  \end{subfigure}%
+  ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc.
+    %(or a blank line to force the subfigure onto a new line)
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{lissajous_position_errors}
+    \caption{Position errors}
+    \label{fig:lissajous_position_errors}
+  \end{subfigure}
+
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{lissajous_yaw_pitch_roll}
+    \caption{Yaw, pitch, and roll}
+    \label{fig:lissajous_yaw_pitch_roll}
+  \end{subfigure}%
+  ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc.
+    %(or a blank line to force the subfigure onto a new line)
+  \begin{subfigure}[b]{0.45\textwidth}
+    \includegraphics[width=\textwidth]{lissajous_fwd_error}
+    \caption{Forward error}
+    \label{fig:lissajous_fwd_error}
+  \end{subfigure}
+  ~ %add desired spacing between images, e. g. ~, \quad, \qquad, \hfill etc.
+    %(or a blank line to force the subfigure onto a new line)
+  \caption{Lissajous trajectory performance.}
+  \label{fig:lissajous_performance}
+\end{figure}
+
+\pagebreak
+\begin{table}[b]
+\centering
+\begin{tabular}[h]{|c|c|c|c|c|}
+  \hline
+   & x [cm] & y [cm] & z [cm] & f [deg] \\
+  \hline
+  Circle & 9.46 & 64.9 & 0.95 & 1.38 \\
+  \hline
+  Lissajous & 11.4 & 25.9 & 1.39 & 17.1 \\
+  \hline
+\end{tabular}
+\caption{RMSE tracking performance for two simulated trajectories.}
+\label{table:metrics}
+\end{table}
+
+\section{Conclusion and Future Directions}
+This project successfully implemented a modified version of a novel, nonlinear
+controller for aggressive quadrotor flight based on \cite{lee2010geometric}
+using the \texttt{hector\_quadrotor} stack and
+validated its performance on two trajectories of varying complexity.
+Performance metrics show that the controller can easily track simple flight
+maneuvers outside of the hover state and can adequately track complex trajectories
+with significant angular accelerations.
+
+Future work to consider would be to remove the inner PID control loop and
+control the thrust $f$ and torque $M$ directly, which should allow tracking
+more extreme manuevers. One might also consider the automatic generation of
+dynamically feasible paths through minimum snap optimzation as in
+\cite{mellinger2011minimum} or \cite{richter2013polynomial}. Finally, it would be
+interesting to test the controller outside of simulation using an actual quadrotor.
 
 %----------------------------------------------------------------------------------------
 % Bibliography
 %----------------------------------------------------------------------------------------
+\clearpage
 \bibliography{references}{}
 \bibliographystyle{plain}
-
-%---------%% -------------------------------------------------------------------------------
-%% %	PROBLEM 1
-%% %----------------------------------------------------------------------------------------
-%% \section{}
-%% \subsection{}
-%% For $G_c(s)G_p(s) = \frac{K}{(s^2 + 6s + 8)(s^2 + 2s + 5)}$, there are no open loop zeros
-%% and four open loop poles since the denominator of $G_c(s)G_p(s)$ is a fourth order polynomial.
-%% Solving for the roots of the denominator we have open loop poles at $\{-2, -4, -1 + 2j, -1 - 2j\}$.
-%% The closed loop poles on the root locus will start at the open loop poles for $K = 0$, and
-%% then converge to open loop zeros. Since there are no open loop zeros, the closed loop poles
-%% will diverge to infinity with asymptotes at $\frac{\pi \pm 2\pi i}{4} = \pi/4 \pm (\pi/2) i$
-%% for $i = 0, 1, \ldots$. The
-%% origin of the asymptotes will lie at $(-2 - 4 + (-1 + 2j) + (-1 - 2j))/4 = -2$. Finally,
-%% since there are an odd number of poles/zeros to the right of the the pole at $-4$,
-%% the real-line between $-4$ and $-2$ will also reside on the locus, resulting in
-%% following figure:
-%% \begin{figure}[h!]
-%%   \centering
-%%   \includegraphics[width=0.6\textwidth]{1a_rlocus}
-%% %  \caption{New views after reconstructing scene depths with Simple World assumption.}
-%% \end{figure}
-
-%% \subsection{}
-%% For $G_c(s)G_p(s) = \frac{K(s^2 + 4.5s + 5.625)}{s(s+1)(s+2)}$, we have two open loop zeros
-%% at $\{-2.25 + 0.75j, -2.25 - 0.75j\}$ and three open loop poles at
-%% $\{0, -2, -1\}$. Using the real-line rule, the real line to the left of $-2$ will lie on
-%% the locus, as well as the
-%% segment between $-1$ and $0$. Since we have one more pole than zeros, we will have one
-%% asymptote at $\pi$, satisfied by the pole at $-2$.. The poles at $-1$ and $0$ will move
-%% closer together on the real axis before converging to the complex zeros resulting in:
-%% \begin{figure}[h!]
-%%   \centering
-%%   \includegraphics[width=0.6\textwidth]{1b_rlocus}
-%% %  \caption{New views after reconstructing scene depths with Simple World assumption.}
-%% \end{figure}
-
-%% \subsection{}
-%% For $G_c(s)G_p(s) = \frac{K(s+5)}{s^4 - 9s^2}$, we will have one open loop zero at $-5$
-%% and four open loop poles at $\{0, 0, -3, 3\}$. Since we have three more poles than zeros,
-%% the root locus will have asymptotes at $\pi/3 + (2\pi/3) i$ for $i = 0, 1, \ldots$. Using the
-%% real-line rule, the segments from $[-3, 0]$ and $[0, 3]$ will lie on the locus. One of the poles
-%% at $0$ and the pole at $3$ will converge together before breaking away on asymptotes at $\pi/3$ and
-%% $-\pi/3$. The other pole at $0$ will converge with $-3$. When they meet, one will split off
-%% towards the open loop pole at $-5$, while the other continues on the real axis towards
-%% negative infinity.
-%% \begin{figure}[h!]
-%%   \centering
-%%   \includegraphics[width=0.6\textwidth]{1c_rlocus}
-%% %  \caption{New views after reconstructing scene depths with Simple World assumption.}
-%% \end{figure}
-
-%% %----------------------------------------------------------------------------------------
-%% %	PROBLEM 2
-%% %----------------------------------------------------------------------------------------
-%% \pagebreak
-%% \section{}
-%% \subsection{}
-%% To plot the root locus, we must first compute the closed loop transfer function. By following
-%% the signal from the output to the input, we arrive at the following relation:
-%% \begin{align*}
-%% \theta(s) &= G_p(s) [K_p(\theta_c(s) - \theta(s)) - sK_d \theta(s)].
-%% \end{align*}
-%% After rearranging terms we arrive at the closed loop transfer function
-%% \begin{align*}
-%% \frac{\theta(s)}{\theta_c(s)} &= \frac{K_pG_p(s)}{1 + K_pG_p(s) + sK_dG_p(s)}.
-%% \end{align*}
-
-%% With $K_d = 0$, the denominator of the transfer function becomes
-%% \begin{align*}
-%% 1 + K_pG_p(s)
-%% \end{align*}
-%% where we see that the open loop system is just $G_p(s) = \frac{0.9}{(s^2 - 0.03)}$ with no
-%% zeros and two poles at $\pm \sqrt{0.03}$. With more poles than zeros, the closed loop poles
-%% will tend towards asymptotes at $\pi/2 \pm \pi i$ for $i = 0, 1, \ldots$. The origin of the
-%% asymptotes will lie at $0$ and the segment between $\pm \sqrt{0.03}$ will also lie on the
-%% locus. Thus, we have the following behavior:
-%% \begin{figure}[h!]
-%%   \centering
-%%   \includegraphics[width=0.6\textwidth]{2a_rlocus}
-%% %  \caption{New views after reconstructing scene depths with Simple World assumption.}
-%% \end{figure}
-
-%% We see here the the system is unstable when $K$ is small (the pole at $+\sqrt{0.03}$)
-%% and becomes marginally stable when $K$ is large, but oscillatory
-%% (the convergence to the imaginary axis).
-%% At no point is the system strictly stable, no matter the value of $K$.
-
-%% \subsection{}
-%% We wish to set $K_p$ and $K_d$ such that the closed loop poles lie at $s = -0.2 \pm 0.3j$.
-%% By manipulating the denominator of the transfer function we have
-%% \begin{align*}
-%% 1 + K_pG_p(s) + sK_dG_p(s) &= 1 + K_p \frac{0.9}{s^2 - 0.03} + sK_d\frac{0.9}{s^2 - 0.03}.
-%% \end{align*}
-%% Multiplying through by $s^2 - 0.03$ and setting to zero yields the following constraint(s)
-%% that $K_p$ and $K_d$ must satisfy when $s = -0.2 \pm 0.3j$:
-%% \begin{align*}
-%% s^2 + 0.9K_ds + 0.9K_p - 0.03 = 0.
-%% \end{align*}
-%% We note that with the relationship $(s - p_1)(s - p_2) = s^2 - s(p_1 + p_2) + p_1p_2$, we see
-%% that
-%% \begin{align*}
-%% 0.9K_d &= - (-0.2 + 03j + -0.2 - 0.3j) \\
-%% 0.9K_p - 0.03 &= (-0.2 + 0.3j)(-0.2 - 0.3j),
-%% \end{align*}
-%% which gives us $K_p = 8/45$ and $K_d = 4/9$.
-
-%% \subsection{}
-%% With $K_d = 4/9$, the root locus becomes
-%% \begin{figure}[h!]
-%%   \centering
-%%   \includegraphics[width=0.6\textwidth]{2c_rlocus}
-%% %  \caption{New views after reconstructing scene depths with Simple World assumption.}
-%% \end{figure}
-
-%% from which we can see that the system is stable for appropriate values of $K_p > 0$.
-
-%% \subsection{}
-%% With $K_d = 4/9$ and $K_p = 1$, the impulse response of the closed loop system is
-%% \begin{align*}
-%% h(t) &= (9/\sqrt{83}) \exp(-t/5) \sin(\sqrt{83}t/10)
-%% \end{align*}
-%% with the following behavior:
-%% \begin{figure}[h!]
-%%   \centering
-%%   \includegraphics[width=0.55\textwidth]{2d_impulse}
-%% %  \caption{New views after reconstructing scene depths with Simple World assumption.}
-%% \end{figure}
-
-%% %----------------------------------------------------------------------------------------
-%% %	PROBLEM 3
-%% %----------------------------------------------------------------------------------------
-%% \section{}
-%% To find the range of $\lambda$ for which the system is stable for all $K > 0$, we first find
-%% the closed loop tranfer function. Considering the inner velocity control loop we have
-%% \begin{align*}
-%% V(s) &= (\frac{10}{s+11})(\frac{K}{s + \lambda})(Z(s) - V(s))
-%% \end{align*}
-%% where $Z(s)$ is the velocity error. Solving for $V(s)/Z(s)$ yields
-%% \begin{align*}
-%% \frac{V(s)}{Z(s)} &= \frac{(\frac{10}{s+11})(\frac{K}{s + \lambda})}{1 + (\frac{10}{s+11})(\frac{K}{s + \lambda})} \\
-%% &= \frac{10K}{(s+11)(s+\lambda) + 10K}.
-%% \end{align*}
-
-%% The outer loop then must satisfy
-%% \begin{align*}
-%% Y(s) &= \frac{1}{s}\frac{V(s)}{Z(s)}(R(s) - Y(s)
-%% \end{align*}
-%% such that $Y(s)/R(s)$ is given by
-%% \begin{align*}
-%% \frac{Y(s)}{R(s)} &= \frac{\frac{1}{s}\frac{V(s)}{Z(s)}}{1 + \frac{1}{s}\frac{V(s)}{Z(s)}}.
-%% \end{align*}
-
-%% We must now rearrange the denominator of $Y(s)/R(s)$ into the form $1 + KL(s)$ in order to apply
-%% the root locus methods. We therefore have
-%% \begin{align*}
-%% 1 + \frac{1}{s}\frac{V(s)}{Z(s)} &= 0 \\
-%% &= 1 + \frac{1}{s}\left(\frac{10K}{(s+11)(s+\lambda) + 10K}\right) \\
-%% &= s + \frac{10K}{(s+11)(s+\lambda) + 10K} \\
-%% &= s(s+11)(s+\lambda) + s10K + 10K \\
-%% &= s(s+11)(s+\lambda) + K(s10 + 10) \\
-%% &= 1 + K \frac{10(s + 1)}{s(s+11)(s+\lambda)},
-%% \end{align*}
-%% from which we can see that $L(s) = \frac{10(s + 1)}{s(s+11)(s+\lambda)}$.
-
-%% The open loop system has one zero at $-1$ and three poles at $\{0, -11, -\lambda\}$.
-%% One of the poles will converge to the zero at $-1$, while the other two will trend towards
-%% asymptotes at $\pi/2 \pm \pi i$ for $i = 0, 1, \ldots$ with origin at $O = (-11 - \lambda + 1)/2 = -(10 + \lambda)/2$.
-%% For the system to be stable for all $K > 0$, all of the open loop poles must have
-%% a negative real component less than or equal zero so that the system will be stable when
-%% $K$ is small. This puts the constraint that $\lambda \geq 0$. For the system to be stable
-%% when $K$ is large, we must place $O$ such that it is strictly less than zero yielding
-%% $-(10 + \lambda)/2 < 0 \implies \lambda > -10$. The combination of these constraints leads to
-%% $\lambda \geq 0$.
-
-%% For $\lambda = 1$, the roots locus is the following:
-%% \begin{figure}[h!]
-%%   \centering
-%%   \includegraphics[width=0.6\textwidth]{3_rlocus}
-%% %  \caption{New views after reconstructing scene depths with Simple World assumption.}
-%% \end{figure}
-
-%% %----------------------------------------------------------------------------------------
-%% %	PROBLEM 4
-%% %----------------------------------------------------------------------------------------
-%% \section{}
-%% \subsection{}
-%% The closed loop transfer function of the system in question is
-%% \begin{align*}
-%% \frac{Y(s)}{U(s)} &= \frac{G_p(s)G_c(s)}{1 + G_p(s)G_c(s)},
-%% \end{align*}
-%% where the denominator expands to
-%% \begin{align*}
-%% 1 + G_p(s)G_c(s) &= 1 + K(\frac{s-2}{s})(\frac{s+z}{s+p}).
-%% \end{align*}
-%% From here we can see that the system has two open loop zeros at $\{2, -z\}$ and two open loop
-%% poles at $\{0, -p\}$.
-
-%% From the root locus rules, we know that the closed loop poles will start at the open loop poles
-%% when $K$ is small and converge to the open loop zeros when $K$ is large. In order for the
-%% system to be strictly stable for some range of $K$, we must ``pull'' the pole at $0$ away
-%% from the zero at $2$, into the negative-real half of the complex plane, while also making
-%% sure the pole at $-p$ lies in the negative-real half as well. We can do this
-%% by making $p > 0$ and  making sure there are an odd number of poles/zeros
-%% to the right of $-p$ by making $z < 0$. Choosing $p = 1$ and $z = -1$, the root locus is given
-%% below and we can see that the system is strictly stable for some range of $K$.
-%% \begin{figure}[h!]
-%%   \centering
-%%   \includegraphics[width=0.6\textwidth]{4a_rlocus}
-%% %  \caption{New views after reconstructing scene depths with Simple World assumption.}
-%% \end{figure}
-
-%% To find this range, we will substitute $s = j\alpha$ into
-%% the characteristic polynomial (representing the crossing of the imaginary axis) and solve for $K$.
-%% With $p = 1$ and $z = -1$, the characteristic polynomial is
-%% \begin{align*}
-%% \phi(s) &= 1 + K (\frac{s - 2}{s}) (\frac{s - 1}{s + 1}) \\
-%% &= 0.
-%% \end{align*}
-%% Solving for $K$, we have $K = \frac{-s(s + 1)}{(s-2)(s-1)}$. We substitute $s = j\alpha$ to obtain
-%% \begin{align*}
-%% K &= \frac{-j\alpha(j\alpha + 1)}{(j\alpha - 2)(j\alpha - 1)} \\
-%% &= \frac{\alpha^2 - j \alpha}{(2-\alpha^2) - j3\alpha}.
-%% \end{align*}
-%% We note that complex division is defined as
-%% \begin{align*}
-%% \frac{a + jb}{c + jd} &= \frac{ac + bd}{c^2 + d^2} + j\frac{bc - ad}{c^2 + d^2}
-%% \end{align*}
-%% and apply this definition to the expression for $K$ with $a = \alpha^2$, $b = -\alpha$,
-%% $c = 2 - \alpha^2$, and $d = -3\alpha$ yielding
-%% \begin{align*}
-%% K &= \frac{\alpha^2(5 - \alpha^2)}{(2-\alpha^2)^2 + 9\alpha^2}
-%%      + j\frac{\alpha(-2 + 4\alpha^2)}{(2-\alpha^2)^2 + 9\alpha^2}.
-%% \end{align*}
-
-%% We know that $K$ must be real and positive, so we set $\Im(K) = 0$, which reduces to
-%% \begin{align*}
-%% \alpha(-2 + 4\alpha^2) &= 0,
-%% \end{align*}
-%% from which we can see that $\alpha = \{0, \pm 1/\sqrt{2}\}$. The solution $\alpha = 0$
-%% represents the locus crossing the origin at $K = 0$, while $\alpha = \pm 1/\sqrt{2}$ represents
-%% the crossing of the imaginary axis at $K > 0$. We substitute these solutions into the
-%% expression for $K$ and and find that the root locus crosses the imaginary axis at $K = 1/3$.
-%% Thus, for the system to be strictly stable, $0 < K < 1/3$.
-
-%% \subsection{}
-%% We must now pick a specific $K$ such that the system is strictly stable, the damping ratio $\zeta$
-%% is between $0.4$ and $0.6$, and the natural frequency $w_n$ is minimized. Inspecting the
-%% root locus plot, we see that the natural frequncy $w_n$ will be minimized when the
-%% damping ratio $\zeta$ is maximized. Thus, we set $\zeta = 0.6$ and solve for $w_n$ to find
-%% $K$.
-
-%% The relationship between the complex $s$ variable and $w_n$ and $\zeta$ is given by
-%% \begin{align*}
-%% s &= -\zeta w_n + j w_n \sqrt{1 - \zeta^2} \\
-%% &= w_n(-0.6 + j 0.8).
-%% \end{align*}
-%% We substitute this expression into that for $K$ to obtain
-%% \begin{align*}
-%% K &= \frac{-s(s + 1)}{(s-2)(s-1)} \\
-%% &= \frac{(0.28 w_n^2 + 0.6 w_n) + j (0.96 w_n^2 - 0.8 w_n)}{(-0.28 w_n^2 + 1.8 w_n + 2) + j(-0.96 w_n^2 - 2.4 w_n)}.
-%% \end{align*}
-%% We apply the same procedure as before, applying the complex division operation and
-%% setting the imaginary component of the quotient to zero, yielding the following
-%% constraint:
-%% \begin{align*}
-%% \Im(K) &= \eta w_n(w_n^2 + 0.6 w_n - 0.5) \\
-%% &= 0,
-%% \end{align*}
-%% where $\eta$ is the normalizer. Solving the above equation results in three solutions,
-%% $w_n = \{-1.068, 0, 0.468\}$. We take the positive solution and find that the required
-%% value of $K$ is $K = 0.123$.
-
-%% %----------------------------------------------------------------------------------------
-%% %	PROBLEM 5
-%% %----------------------------------------------------------------------------------------
-%% \section{}
-%% I spent roughly 10 hours on this problem set, including typesetting. 
 
 \end{document}
