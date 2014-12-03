@@ -103,7 +103,7 @@ cluttered environments such as buildings and forests).
 
 This project focuses on the implementation of a modern, nonlinear controller for stabilizing the
 3D position and yaw angle of a quadrotor far from the hover regime based on \cite{lee2010geometric}.
-Aa modified version of this controller was implemented in Python and validated
+A modified version of this controller was implemented in Python and validated
 in simulation using the \texttt{hector\_quadrotor} simulator - a software package that simulates the
 dynamics of a quadrotor using the Robot Operating System (ROS) and the Gazebo robot
 simulation toolkit \cite{2012simpar_meyer, quigley2009ros, koenig2004design}. Results
@@ -220,10 +220,10 @@ A modified version of the above controller was implemented in Python and validat
 in simulation using the \texttt{hector\_quadrotor} package \cite{2012simpar_meyer}
 and ROS Indigo \cite{quigley2009ros}.
 Unfortunately, however, the package does not easily support controlling the quadrotor's total
-thrust $f$ and torque $M$ (only the motor voltages and be directly set), so
+thrust $f$ and torque $M$ (only the motor voltages can be directly set), so
 the approach in \cite{lee2010geometric} was adapted
-to take advantage of an existing PID velocity controller available in the
-stack.
+to take advantage of an existing PID controller available in the
+stack that tracks linear and angular velocity.
 
 This simple controller was considered to be an inner loop
 of the system, resulting in new control inputs $v$ and $\Omega$. Using the
