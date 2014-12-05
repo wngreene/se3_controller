@@ -189,7 +189,7 @@ position and orientation independently (it must pitch or roll to translate) and
 therefore two of the three degrees of freedom related to orientation are constrained
 by tracking the desired trajectory. The remaining degree of orientation freedom
 (the yaw angle) is then chosen to most closely match the projection of the
-desired forward vector $f_d(t)$ onto the horizontal plan defined by the quadrotor
+desired forward vector $f_d(t)$ onto the horizontal plane defined by the quadrotor
 body, resulting in the goal orientation $R_d$.
 
 Finally, the control inputs $f$ and $m$ are determined by the following relations:
@@ -359,7 +359,7 @@ velocity vector $v_d(t) = \dot{x}(t)$ is given by
 \end{align}
 
 Figure \ref{fig:lissajous_performance} show the tracking
-performance for the controller. As once can see, the controller successfuly
+performance for the controller. As one can see, the controller successfuly
 tracks this more aggressive trajectory, although the steady state errors are
 more significant than for the simpler cicular trajectory. The RMSE for each
 position and orientation component is shown in Table \ref{table:metrics}.
